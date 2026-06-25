@@ -296,10 +296,111 @@ pub fn import_backup_json(conn: &mut Connection, backup_json: &str) -> Result<()
     Ok(())
 }
 
+pub fn delete_transaction_and_recalculate_portfolio(
+    conn: &mut Connection,
+    id: i32,
+) -> Result<(), AppError> {
+    let tx = conn.transaction()?;
+
+    // 1. Delete transaction log
+    tx.execute("DELETE FROM transaction_logs WHERE id = ?1;", [id])?;
+
+    // 2. Reset all default assets to 0.0
+    let default_assets = ["Savings", "Gold", "VN30", "Diamond"];
+    for asset in default_assets {
+        tx.execute(
+            "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, 0.0);",
+            params![asset],
+        )?;
+    }
+
+    // 3. Select all remaining transaction logs chronologically
+    let mut quantities = std::collections::HashMap::new();
+    for asset in &default_assets {
+        quantities.insert(asset.to_string(), 0.0);
+    }
+
+    {
+        let mut stmt = tx.prepare("SELECT asset, action_type, quantity FROM transaction_logs ORDER BY date ASC, id ASC;")?;
+        let mut rows = stmt.query([])?;
+
+        while let Some(row) = rows.next()? {
+            let asset: String = row.get(0)?;
+            let action_type: String = row.get(1)?;
+            let quantity: f64 = row.get(2)?;
+
+            let delta = match action_type.as_str() {
+                "Buy" | "Deposit" => quantity,
+                "Sell" | "Withdraw" => -quantity,
+                _ => 0.0,
+            };
+
+            if let Some(qty) = quantities.get_mut(&asset) {
+                *qty = (*qty + delta).max(0.0);
+            }
+        }
+    }
+
+    // 5. Save recalculated quantities to user_portfolio
+    for (asset, qty) in quantities {
+        tx.execute(
+            "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, ?2);",
+            params![asset, qty],
+        )?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    #[test]
+    fn test_delete_transaction_recalculation() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+
+        // 1. Deposit 1000 to Savings
+        let log1 = TransactionLog {
+            id: None,
+            asset: "Savings".to_string(),
+            action_type: "Deposit".to_string(),
+            quantity: 1000.0,
+            price: 1.0,
+            date: "2026-06-25".to_string(),
+        };
+        save_transaction_and_update_portfolio(&mut conn, log1).unwrap();
+
+        // 2. Deposit 500 to Savings
+        let log2 = TransactionLog {
+            id: None,
+            asset: "Savings".to_string(),
+            action_type: "Deposit".to_string(),
+            quantity: 500.0,
+            price: 1.0,
+            date: "2026-06-26".to_string(),
+        };
+        save_transaction_and_update_portfolio(&mut conn, log2).unwrap();
+
+        // Get transaction ids
+        let state = get_portfolio_state(&conn).unwrap();
+        assert_eq!(state.transactions.len(), 2);
+        let id_to_delete = state.transactions[1].id.unwrap(); // first log (log1) chronologically is second in desc order
+
+        let savings = state.portfolio.iter().find(|i| i.asset == "Savings").unwrap();
+        assert_eq!(savings.quantity, 1500.0);
+
+        // 3. Delete log1 (1000)
+        delete_transaction_and_recalculate_portfolio(&mut conn, id_to_delete).unwrap();
+
+        let state_after = get_portfolio_state(&conn).unwrap();
+        let savings_after = state_after.portfolio.iter().find(|i| i.asset == "Savings").unwrap();
+        assert_eq!(savings_after.quantity, 500.0);
+        assert_eq!(state_after.transactions.len(), 1);
+    }
 
     #[test]
     fn test_save_transaction_clipping() {

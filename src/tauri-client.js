@@ -137,10 +137,44 @@ async function browserMockInvoke(cmd, args) {
         } else if (log.action_type === "Withdraw" || log.action_type === "Sell") {
           q -= log.quantity;
         }
-        return { ...item, quantity: q };
+        return { ...item, quantity: Math.max(0.0, q) };
       }
       return item;
     });
+    localStorage.setItem("eb_portfolio", JSON.stringify(updatedPortfolio));
+    return;
+  }
+
+  if (cmd === "delete_transaction") {
+    const { id } = args;
+    const remainingTransactions = data.transactions.filter(t => t.id !== id);
+    localStorage.setItem("eb_transactions", JSON.stringify(remainingTransactions));
+
+    const defaultAssets = ["Savings", "Gold", "VN30", "Diamond"];
+    const quantities = {};
+    defaultAssets.forEach(asset => {
+      quantities[asset] = 0.0;
+    });
+
+    const sortedTxs = [...remainingTransactions].sort((a, b) => {
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    sortedTxs.forEach(log => {
+      const delta = (log.action_type === "Deposit" || log.action_type === "Buy") ? log.quantity : -log.quantity;
+      if (quantities[log.asset] !== undefined) {
+        quantities[log.asset] = Math.max(0.0, quantities[log.asset] + delta);
+      }
+    });
+
+    const updatedPortfolio = defaultAssets.map(asset => ({
+      asset,
+      quantity: quantities[asset]
+    }));
+
     localStorage.setItem("eb_portfolio", JSON.stringify(updatedPortfolio));
     return;
   }

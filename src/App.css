@@ -539,3 +539,121 @@ button:active {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
+
+/* Transaction history card additions */
+.transaction-history-card {
+  margin-top: 0.5rem;
+}
+
+.transaction-list-container {
+  max-height: 250px;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.transaction-table {
+  width: 100%;
+  margin-top: 0;
+}
+
+.transaction-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-card);
+  z-index: 1;
+}
+
+.tx-action-badge {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.tx-action-badge.buy {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.tx-action-badge.sell {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.btn-danger {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-radius: 6px;
+}
+
+.btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.35);
+}
+
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* Onboarding banner */
+.onboarding-banner {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-banner h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+.onboarding-banner p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Mobile Responsive Optimizations */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 1rem;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 600px) {
+  input, select, button {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS inputs */
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Increase tap target heights for mobile */
+  .btn-primary, .btn-secondary, button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

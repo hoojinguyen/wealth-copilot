@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { invoke } from "./tauri-client";
 import "./App.css";
 
@@ -177,16 +177,34 @@ function App() {
     }
   }
 
+  async function handleDeleteTransaction(id) {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa giao dịch này không? Tỷ trọng danh mục sẽ được tính toán lại từ các giao dịch còn lại.")) {
+      return;
+    }
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      await invoke("delete_transaction", { id });
+      setSuccessMsg("Đã xóa giao dịch thành công!");
+      await loadPortfolioData();
+    } catch (err) {
+      setErrorMsg(String(err));
+    }
+  }
+
   // Calculate prices map
-  const latestPrices = {
-    Savings: 1.0,
-    Gold: 83000000.0,
-    VN30: 21500.0,
-    Diamond: 28500.0
-  };
-  prices.forEach(p => {
-    latestPrices[p.asset] = p.price;
-  });
+  const latestPrices = useMemo(() => {
+    const map = {
+      Savings: 1.0,
+      Gold: 83000000.0,
+      VN30: 21500.0,
+      Diamond: 28500.0
+    };
+    prices.forEach(p => {
+      map[p.asset] = p.price;
+    });
+    return map;
+  }, [prices]);
 
   // Calculate current asset values and total portfolio value
   const portfolioWithValues = portfolio.map(item => {
@@ -341,9 +359,24 @@ function App() {
           <p style={{ marginTop: "1rem", color: "var(--text-secondary)" }}>Đang tải dữ liệu SQLite...</p>
         </div>
       ) : (
-        <div className="dashboard-grid">
-          {/* LEFT COLUMN: Current Portfolio & Form */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <>
+          {transactions.length === 0 && (
+            <div className="onboarding-banner">
+              <h3>👋 Chào mừng đến với eager-bell!</h3>
+              <p>
+                Đây là ứng dụng Cố vấn tài sản cá nhân local-first của bạn. Để bắt đầu:
+              </p>
+              <ol style={{ fontSize: "0.85rem", paddingLeft: "1.2rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+                <li>Nhấp vào nút <strong>"Đồng bộ giá thị trường"</strong> ở góc trên bên phải để cập nhật dữ liệu giá vĩ mô và lịch sử giá mới nhất.</li>
+                <li>Sử dụng biểu mẫu <strong>"Ghi nhận giao dịch tài sản"</strong> bên dưới để thêm các khoản Tiết kiệm, Vàng SJC, hoặc CCQ quỹ ETF VN30/Diamond mà bạn đang sở hữu.</li>
+                <li>Điều chỉnh thanh trượt <strong>"Risk Aversion"</strong> ở cột bên phải để nhận đề xuất phân bổ danh mục đầu tư tối ưu nhất theo khẩu vị rủi ro của bạn.</li>
+              </ol>
+            </div>
+          )}
+
+          <div className="dashboard-grid">
+            {/* LEFT COLUMN: Current Portfolio & Form */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             
             {/* Portfolio Status Card */}
             <div className="card">
@@ -543,6 +576,58 @@ function App() {
                 </button>
               </form>
             </div>
+            
+            {/* Transaction History Card */}
+            <div className="card transaction-history-card">
+              <h2>Lịch sử giao dịch</h2>
+              {transactions.length === 0 ? (
+                <div className="empty-state">Chưa có giao dịch nào được ghi nhận.</div>
+              ) : (
+                <div className="transaction-list-container">
+                  <table className="transaction-table">
+                    <thead>
+                      <tr>
+                        <th>Ngày</th>
+                        <th>Tài sản</th>
+                        <th>Hành động</th>
+                        <th>Số lượng</th>
+                        <th>Giá</th>
+                        <th>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx) => (
+                        <tr key={tx.id}>
+                          <td>{tx.date}</td>
+                          <td>{ASSET_NAMES_VI[tx.asset] || tx.asset}</td>
+                          <td>
+                            <span className={`tx-action-badge ${(tx.action_type === 'Buy' || tx.action_type === 'Deposit') ? 'buy' : 'sell'}`}>
+                              {tx.action_type === 'Deposit' ? 'Nạp tiền' :
+                               tx.action_type === 'Withdraw' ? 'Rút tiền' :
+                               tx.action_type === 'Buy' ? 'Mua vào' : 'Bán ra'}
+                            </span>
+                          </td>
+                          <td>
+                            {tx.asset === 'Savings' ? formatVND(tx.quantity) : tx.quantity.toLocaleString('vi-VN')}
+                          </td>
+                          <td>
+                            {tx.asset === 'Savings' ? '—' : formatVND(tx.price)}
+                          </td>
+                          <td>
+                            <button
+                              className="btn-danger btn-xs"
+                              onClick={() => handleDeleteTransaction(tx.id)}
+                            >
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* RIGHT COLUMN: Rebalancer Adviser */}
@@ -678,6 +763,7 @@ function App() {
             </div>
           </div>
         </div>
+      </>
       )}
     </div>
   );

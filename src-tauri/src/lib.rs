@@ -92,6 +92,19 @@ fn export_backup(state: tauri::State<'_, AppState>) -> Result<String, AppError> 
 }
 
 #[tauri::command]
+fn delete_transaction(state: tauri::State<'_, AppState>, id: i32) -> Result<(), AppError> {
+    let mut conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
+    db::delete_transaction_and_recalculate_portfolio(&mut conn, id)?;
+
+    // Clear solver cache
+    let mut cache = state.cache.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
+    cache.covariance = None;
+    cache.expected_returns = None;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn import_backup(state: tauri::State<'_, AppState>, backup_json: String) -> Result<(), AppError> {
     let mut conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
     db::import_backup_json(&mut conn, &backup_json)?;
@@ -129,6 +142,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_portfolio,
             save_transaction,
+            delete_transaction,
             run_rebalancer,
             sync_market_data,
             export_backup,

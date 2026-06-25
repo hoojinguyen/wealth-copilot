@@ -1,0 +1,51 @@
+[
+  {"date": "2026-06-15", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-15", "asset": "Gold", "price": 82000000.0},
+  {"date": "2026-06-15", "asset": "VN30", "price": 21000.0},
+  {"date": "2026-06-15", "asset": "Diamond", "price": 28000.0},
+
+  {"date": "2026-06-16", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-16", "asset": "Gold", "price": 82200000.0},
+  {"date": "2026-06-16", "asset": "VN30", "price": 21100.0},
+  {"date": "2026-06-16", "asset": "Diamond", "price": 28150.0},
+
+  {"date": "2026-06-17", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-17", "asset": "Gold", "price": 82100000.0},
+  {"date": "2026-06-17", "asset": "VN30", "price": 20950.0},
+  {"date": "2026-06-17", "asset": "Diamond", "price": 27900.0},
+
+  {"date": "2026-06-18", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-18", "asset": "Gold", "price": 82300000.0},
+  {"date": "2026-06-18", "asset": "VN30", "price": 21050.0},
+  {"date": "2026-06-18", "asset": "Diamond", "price": 28000.0},
+
+  {"date": "2026-06-19", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-19", "asset": "Gold", "price": 82500000.0},
+  {"date": "2026-06-19", "asset": "VN30", "price": 21300.0},
+  {"date": "2026-06-19", "asset": "Diamond", "price": 28300.0},
+
+  {"date": "2026-06-20", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-20", "asset": "Gold", "price": 82400000.0},
+  {"date": "2026-06-20", "asset": "VN30", "price": 21200.0},
+  {"date": "2026-06-20", "asset": "Diamond", "price": 28200.0},
+
+  {"date": "2026-06-21", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-21", "asset": "Gold", "price": 82600000.0},
+  {"date": "2026-06-21", "asset": "VN30", "price": 21400.0},
+  {"date": "2026-06-21", "asset": "Diamond", "price": 28400.0},
+
+  {"date": "2026-06-22", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-22", "asset": "Gold", "price": 82700000.0},
+  {"date": "2026-06-22", "asset": "VN30", "price": 21500.0},
+  {"date": "2026-06-22", "asset": "Diamond", "price": 28600.0},
+
+  {"date": "2026-06-23", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-23", "asset": "Gold", "price": 82500000.0},
+  {"date": "2026-06-23", "asset": "VN30", "price": 21350.0},
+  {"date": "2026-06-23", "asset": "Diamond", "price": 28450.0},
+
+  {"date": "2026-06-24", "asset": "Savings", "price": 0.055},
+  {"date": "2026-06-24", "asset": "Gold", "price": 82800000.0},
+  {"date": "2026-06-24", "asset": "VN30", "price": 21600.0},
+  {"date": "2026-06-24", "asset": "Diamond", "price": 28700.0}
+]

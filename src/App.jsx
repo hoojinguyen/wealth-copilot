@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./tauri-client";
 import "./App.css";
 
 const ASSET_COLORS = {

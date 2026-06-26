@@ -19,8 +19,13 @@ pub struct SolverCache {
     pub expected_returns: Option<DVector<f64>>,
 }
 
+fn is_savings_asset(name: &str) -> bool {
+    name == "Savings" || name == "Tiết kiệm"
+}
+
 pub fn calculate_covariance_and_returns(
     prices: &[AssetPriceRecord],
+    assets: &[String],
 ) -> Result<(DMatrix<f64>, DVector<f64>), AppError> {
     // 1. Group prices by date
     let mut date_map: HashMap<String, HashMap<String, f64>> = HashMap::new();
@@ -45,60 +50,114 @@ pub fn calculate_covariance_and_returns(
         ));
     }
 
-    let assets = vec!["Savings", "Gold", "VN30", "Diamond"];
     let num_assets = assets.len();
+    if num_assets == 0 {
+        return Err(AppError::Solver(
+            "No assets provided to calculate covariance and returns".to_string(),
+        ));
+    }
     let num_dates = dates.len();
 
-    // 2. Build daily prices matrix
+    // 2. Build daily prices matrix with Forward-Fill
     // rows: dates, cols: assets
     let mut price_matrix = DMatrix::zeros(num_dates, num_assets);
-    for (t, date) in dates.iter().enumerate() {
-        let day_prices = date_map.get(date).unwrap();
-        for (i, asset) in assets.iter().enumerate() {
-            let price = day_prices.get(*asset).copied().ok_or_else(|| {
-                AppError::Solver(format!("Missing price for {} on date {}", asset, date))
-            })?;
+    for (i, asset) in assets.iter().enumerate() {
+        // First check if there's any price records for this asset
+        let mut has_any_price = false;
+        for date in &dates {
+            if let Some(day_prices) = date_map.get(date) {
+                if day_prices.contains_key(asset) {
+                    has_any_price = true;
+                    break;
+                }
+            }
+        }
+        if !has_any_price {
+            return Err(AppError::Solver(format!("No price history found for asset {}", asset)));
+        }
+
+        // Apply Forward-Fill / Backward-Fill fallback
+        for t in 0..num_dates {
+            let date = &dates[t];
+            let price_opt = date_map.get(date).and_then(|m| m.get(asset).copied());
+            
+            let price = match price_opt {
+                Some(p) => p,
+                None => {
+                    // Try to look back (Forward-Fill)
+                    let mut found_prev = None;
+                    for prev_t in (0..t).rev() {
+                        let prev_date = &dates[prev_t];
+                        if let Some(p) = date_map.get(prev_date).and_then(|m| m.get(asset).copied()) {
+                            found_prev = Some(p);
+                            break;
+                        }
+                    }
+                    
+                    match found_prev {
+                        Some(p) => p,
+                        None => {
+                            // If we can't look back, we look forward to the first available price
+                            let mut found_next = None;
+                            for next_t in (t + 1)..num_dates {
+                                let next_date = &dates[next_t];
+                                if let Some(p) = date_map.get(next_date).and_then(|m| m.get(asset).copied()) {
+                                    found_next = Some(p);
+                                    break;
+                                }
+                            }
+                            found_next.ok_or_else(|| AppError::Solver(format!("No price history found for asset {}", asset)))?
+                        }
+                    }
+                }
+            };
             price_matrix[(t, i)] = price;
         }
     }
 
     // 3. Calculate daily returns
-    // Savings (index 0) return is annual_rate / 250
-    // Other assets return is (P_t - P_{t-1}) / P_{t-1}
     let num_returns = num_dates - 1;
     let mut return_matrix = DMatrix::zeros(num_returns, num_assets);
     for t in 0..num_returns {
-        // Savings daily return
-        let rate_t = price_matrix[(t + 1, 0)];
-        return_matrix[(t, 0)] = rate_t / 250.0;
-
-        for i in 1..num_assets {
-            let p_prev = price_matrix[(t, i)];
-            let p_curr = price_matrix[(t + 1, i)];
-            if p_prev <= 0.0 || p_curr <= 0.0 {
-                return Err(AppError::Solver(format!(
-                    "Invalid price found for asset {} at index {}",
-                    assets[i], t
-                )));
+        for i in 0..num_assets {
+            if is_savings_asset(&assets[i]) {
+                // Savings daily return
+                let rate_t = price_matrix[(t + 1, i)];
+                return_matrix[(t, i)] = rate_t / 250.0;
+            } else {
+                let p_prev = price_matrix[(t, i)];
+                let p_curr = price_matrix[(t + 1, i)];
+                if p_prev <= 0.0 || p_curr <= 0.0 {
+                    return Err(AppError::Solver(format!(
+                        "Invalid price found for asset {} at index {}",
+                        assets[i], t
+                    )));
+                }
+                return_matrix[(t, i)] = (p_curr - p_prev) / p_prev;
             }
-            return_matrix[(t, i)] = (p_curr - p_prev) / p_prev;
         }
     }
 
     // 4. Calculate expected returns (annualized)
     let mut expected_returns = DVector::zeros(num_assets);
-    // Savings expected return is simply the latest rate
-    expected_returns[0] = price_matrix[(num_dates - 1, 0)];
-    for i in 1..num_assets {
-        let sum: f64 = return_matrix.column(i).sum();
-        expected_returns[i] = (sum / num_returns as f64) * 250.0;
+    for i in 0..num_assets {
+        if is_savings_asset(&assets[i]) {
+            expected_returns[i] = price_matrix[(num_dates - 1, i)];
+        } else {
+            let sum: f64 = return_matrix.column(i).sum();
+            expected_returns[i] = (sum / num_returns as f64) * 250.0;
+        }
     }
 
     // 5. Calculate covariance matrix (annualized)
     // Precompute column means to avoid O(N) calls inside nested loops
     let mut col_means = vec![0.0; num_assets];
     for i in 0..num_assets {
-        col_means[i] = if i == 0 { expected_returns[0] / 250.0 } else { return_matrix.column(i).mean() };
+        col_means[i] = if is_savings_asset(&assets[i]) {
+            expected_returns[i] / 250.0
+        } else {
+            return_matrix.column(i).mean()
+        };
     }
 
     let mut cov_matrix = DMatrix::zeros(num_assets, num_assets);
@@ -128,9 +187,13 @@ pub fn calculate_covariance_and_returns(
 pub fn run_optimizer(
     cov_matrix: &DMatrix<f64>,
     expected_returns: &DVector<f64>,
+    assets: &[String],
     lambda: f64,
 ) -> Result<SolverResult, AppError> {
-    let n = 4; // number of assets
+    let n = assets.len();
+    if n == 0 {
+        return Err(AppError::Solver("No assets provided to solver".to_string()));
+    }
 
     // P matrix = lambda * covariance
     let p_mat = cov_matrix * lambda;
@@ -155,18 +218,34 @@ pub fn run_optimizer(
     }
 
     // Constraints:
-    // Row 0: sum of weights = 1.0  => w0 + w1 + w2 + w3 + s_eq = 1.0 (s_eq in ZeroCone)
-    // Row 1..4: w_i >= 0  => -w_i + s_i = 0.0 (s_i in NonnegativeCone)
-    let a_rows = vec![0, 0, 0, 0, 1, 2, 3, 4];
-    let a_cols = vec![0, 1, 2, 3, 0, 1, 2, 3];
-    let a_vals = vec![1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0];
-    let a = CscMatrix::new_from_triplets(5, n, a_rows, a_cols, a_vals);
+    // Row 0: sum of weights = 1.0  => w0 + w1 + ... + w_{n-1} + s_eq = 1.0 (s_eq in ZeroCone)
+    // Row 1..n: w_i >= 0  => -w_i + s_i = 0.0 (s_i in NonnegativeCone)
+    let mut a_rows = Vec::with_capacity(2 * n);
+    let mut a_cols = Vec::with_capacity(2 * n);
+    let mut a_vals = Vec::with_capacity(2 * n);
 
-    let b = vec![1.0, 0.0, 0.0, 0.0, 0.0];
+    // Row 0: sum of weights = 1.0
+    for j in 0..n {
+        a_rows.push(0);
+        a_cols.push(j);
+        a_vals.push(1.0);
+    }
+
+    // Rows 1..n: w_i >= 0 => -w_i + s_i = 0.0
+    for i in 0..n {
+        a_rows.push(i + 1);
+        a_cols.push(i);
+        a_vals.push(-1.0);
+    }
+
+    let a = CscMatrix::new_from_triplets(1 + n, n, a_rows, a_cols, a_vals);
+
+    let mut b = vec![0.0; 1 + n];
+    b[0] = 1.0;
 
     let cones = vec![
         SupportedConeT::ZeroConeT(1),
-        SupportedConeT::NonnegativeConeT(4),
+        SupportedConeT::NonnegativeConeT(n),
     ];
 
     let settings = DefaultSettingsBuilder::default()
@@ -187,7 +266,6 @@ pub fn run_optimizer(
         let p_volatility = p_variance.sqrt();
 
         let mut weights_map = HashMap::new();
-        let assets = vec!["Savings", "Gold", "VN30", "Diamond"];
         for (i, asset) in assets.iter().enumerate() {
             weights_map.insert(asset.to_string(), weights[i]);
         }
@@ -212,18 +290,20 @@ mod tests {
     #[test]
     fn test_calculate_covariance_empty_or_single_date() {
         let prices = vec![];
-        let result = calculate_covariance_and_returns(&prices);
+        let assets = vec!["Savings".to_string(), "Gold".to_string(), "VN30".to_string(), "Diamond".to_string()];
+        let result = calculate_covariance_and_returns(&prices, &assets);
         assert!(matches!(result, Err(AppError::EmptyDatabase)));
 
         let prices_one = vec![
             AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Savings".to_string(), price: 0.05 },
         ];
-        let result_one = calculate_covariance_and_returns(&prices_one);
+        let result_one = calculate_covariance_and_returns(&prices_one, &assets);
         assert!(result_one.is_err());
     }
 
     #[test]
     fn test_calculate_covariance_invalid_price() {
+        let assets = vec!["Savings".to_string(), "Gold".to_string(), "VN30".to_string(), "Diamond".to_string()];
         let prices = vec![
             AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Savings".to_string(), price: 0.05 },
             AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Gold".to_string(), price: 0.0 }, // invalid
@@ -238,12 +318,13 @@ mod tests {
             AssetPriceRecord { date: "2026-06-27".to_string(), asset: "VN30".to_string(), price: 10.0 },
             AssetPriceRecord { date: "2026-06-27".to_string(), asset: "Diamond".to_string(), price: 10.0 },
         ];
-        let result = calculate_covariance_and_returns(&prices);
+        let result = calculate_covariance_and_returns(&prices, &assets);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_calculate_covariance_normal_path() {
+        let assets = vec!["Savings".to_string(), "Gold".to_string(), "VN30".to_string(), "Diamond".to_string()];
         let prices = vec![
             AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Savings".to_string(), price: 0.05 },
             AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Gold".to_string(), price: 80.0 },
@@ -258,14 +339,49 @@ mod tests {
             AssetPriceRecord { date: "2026-06-27".to_string(), asset: "VN30".to_string(), price: 10.2 },
             AssetPriceRecord { date: "2026-06-27".to_string(), asset: "Diamond".to_string(), price: 10.4 },
         ];
-        let (cov, ret) = calculate_covariance_and_returns(&prices).unwrap();
+        let (cov, ret) = calculate_covariance_and_returns(&prices, &assets).unwrap();
         assert_eq!(cov.nrows(), 4);
         assert_eq!(ret.len(), 4);
 
         // run optimizer
-        let result = run_optimizer(&cov, &ret, 5.0).unwrap();
+        let result = run_optimizer(&cov, &ret, &assets, 5.0).unwrap();
         assert_eq!(result.weights.len(), 4);
         assert!(result.weights.contains_key("Savings"));
         assert!(result.weights.contains_key("Gold"));
+    }
+
+    #[test]
+    fn test_calculate_covariance_forward_fill() {
+        let assets = vec![
+            "Savings".to_string(),
+            "Gold".to_string(),
+            "VN30".to_string(),
+            "HPG.HM".to_string(),
+        ];
+        // HPG.HM has missing prices on 2026-06-26. It should be forward-filled with 2026-06-25 price.
+        let prices = vec![
+            AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Savings".to_string(), price: 0.05 },
+            AssetPriceRecord { date: "2026-06-25".to_string(), asset: "Gold".to_string(), price: 80.0 },
+            AssetPriceRecord { date: "2026-06-25".to_string(), asset: "VN30".to_string(), price: 10.0 },
+            AssetPriceRecord { date: "2026-06-25".to_string(), asset: "HPG.HM".to_string(), price: 25.0 },
+            
+            AssetPriceRecord { date: "2026-06-26".to_string(), asset: "Savings".to_string(), price: 0.05 },
+            AssetPriceRecord { date: "2026-06-26".to_string(), asset: "Gold".to_string(), price: 81.0 },
+            AssetPriceRecord { date: "2026-06-26".to_string(), asset: "VN30".to_string(), price: 10.1 },
+            // HPG.HM is missing here!
+            
+            AssetPriceRecord { date: "2026-06-27".to_string(), asset: "Savings".to_string(), price: 0.05 },
+            AssetPriceRecord { date: "2026-06-27".to_string(), asset: "Gold".to_string(), price: 82.0 },
+            AssetPriceRecord { date: "2026-06-27".to_string(), asset: "VN30".to_string(), price: 10.2 },
+            AssetPriceRecord { date: "2026-06-27".to_string(), asset: "HPG.HM".to_string(), price: 26.0 },
+        ];
+        let (cov, ret) = calculate_covariance_and_returns(&prices, &assets).unwrap();
+        assert_eq!(cov.nrows(), 4);
+        assert_eq!(ret.len(), 4);
+
+        // run optimizer
+        let result = run_optimizer(&cov, &ret, &assets, 5.0).unwrap();
+        assert_eq!(result.weights.len(), 4);
+        assert!(result.weights.contains_key("HPG.HM"));
     }
 }

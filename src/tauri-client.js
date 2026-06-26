@@ -69,6 +69,8 @@ function getBrowserData() {
   let prices = localStorage.getItem("eb_prices");
   let portfolio = localStorage.getItem("eb_portfolio");
   let transactions = localStorage.getItem("eb_transactions");
+  let settings = localStorage.getItem("eb_settings");
+  let macros = localStorage.getItem("eb_macro_indicators");
 
   if (!prices) {
     prices = JSON.stringify(defaultSeedData);
@@ -76,27 +78,43 @@ function getBrowserData() {
   }
   if (!portfolio) {
     portfolio = JSON.stringify([
-      { asset: "Savings", quantity: 100000000.0 },
-      { asset: "Gold", quantity: 2.0 },
-      { asset: "VN30", quantity: 1000.0 },
-      { asset: "Diamond", quantity: 1500.0 }
+      { asset: "Savings", quantity: 100000000.0, asset_type: "Liquid", purchase_price: 1.0, realized_pnl: 0.0 },
+      { asset: "Gold", quantity: 2.0, asset_type: "Liquid", purchase_price: 82000000.0, realized_pnl: 0.0 },
+      { asset: "VN30", quantity: 1000.0, asset_type: "Liquid", purchase_price: 21000.0, realized_pnl: 0.0 },
+      { asset: "Diamond", quantity: 1500.0, asset_type: "Liquid", purchase_price: 28000.0, realized_pnl: 0.0 }
     ]);
     localStorage.setItem("eb_portfolio", portfolio);
   }
   if (!transactions) {
     transactions = JSON.stringify([
-      { id: 1, asset: "Savings", action_type: "Deposit", quantity: 100000000.0, price: 1.0, date: "2026-06-15" },
-      { id: 2, asset: "Gold", action_type: "Buy", quantity: 2.0, price: 82000000.0, date: "2026-06-15" },
-      { id: 3, asset: "VN30", action_type: "Buy", quantity: 1000.0, price: 21000.0, date: "2026-06-15" },
-      { id: 4, asset: "Diamond", action_type: "Buy", quantity: 1500.0, price: 28000.0, date: "2026-06-15" }
+      { id: 1, asset: "Savings", action_type: "Deposit", quantity: 100000000.0, price: 1.0, date: "2026-06-15", fee: 0.0, tax: 0.0 },
+      { id: 2, asset: "Gold", action_type: "Buy", quantity: 2.0, price: 82000000.0, date: "2026-06-15", fee: 0.0, tax: 0.0 },
+      { id: 3, asset: "VN30", action_type: "Buy", quantity: 1000.0, price: 21000.0, date: "2026-06-15", fee: 0.0, tax: 0.0 },
+      { id: 4, asset: "Diamond", action_type: "Buy", quantity: 1500.0, price: 28000.0, date: "2026-06-15", fee: 0.0, tax: 0.0 }
     ]);
     localStorage.setItem("eb_transactions", transactions);
+  }
+  if (!settings) {
+    settings = JSON.stringify({ gemini_api_key: "", proxy_url: "" });
+    localStorage.setItem("eb_settings", settings);
+  }
+  if (!macros) {
+    macros = JSON.stringify([
+      { key: "NHNN_RATE", value: 0.045, description: "Lãi suất điều hành NHNN", updated_at: "2026-06-26" },
+      { key: "USD_VND", value: 25450.0, description: "Tỷ giá USD/VND", updated_at: "2026-06-26" },
+      { key: "VNINDEX", value: 1280.5, description: "Chỉ số VN-Index", updated_at: "2026-06-26" },
+      { key: "CPI", value: 104.2, description: "Chỉ số giá tiêu dùng CPI", updated_at: "2026-06-26" },
+      { key: "INFLATION", value: 0.038, description: "Tỷ lệ lạm phát", updated_at: "2026-06-26" }
+    ]);
+    localStorage.setItem("eb_macro_indicators", macros);
   }
 
   return {
     prices: JSON.parse(prices),
     portfolio: JSON.parse(portfolio),
-    transactions: JSON.parse(transactions)
+    transactions: JSON.parse(transactions),
+    settings: JSON.parse(settings),
+    macros: JSON.parse(macros)
   };
 }
 
@@ -107,7 +125,27 @@ async function browserMockInvoke(cmd, args) {
   const data = getBrowserData();
 
   if (cmd === "get_portfolio") {
-    return data;
+    return {
+      portfolio: data.portfolio,
+      prices: data.prices,
+      transactions: data.transactions
+    };
+  }
+
+  if (cmd === "get_user_settings") {
+    return data.settings;
+  }
+
+  if (cmd === "save_user_settings") {
+    const { api_key, proxy_url, apiKey, proxyUrl } = args;
+    const finalKey = api_key !== undefined ? api_key : apiKey;
+    const finalProxy = proxy_url !== undefined ? proxy_url : proxyUrl;
+    localStorage.setItem("eb_settings", JSON.stringify({ gemini_api_key: finalKey, proxy_url: finalProxy }));
+    return;
+  }
+
+  if (cmd === "get_macro_indicators") {
+    return data.macros;
   }
 
   if (cmd === "save_transaction") {
@@ -123,24 +161,88 @@ async function browserMockInvoke(cmd, args) {
     }
 
     const newId = data.transactions.length > 0 ? Math.max(...data.transactions.map(t => t.id || 0)) + 1 : 1;
-    const newTx = { ...log, id: newId };
+    const newTx = {
+      ...log,
+      id: newId,
+      fee: log.fee || 0.0,
+      tax: log.tax || 0.0
+    };
 
     const updatedTransactions = [newTx, ...data.transactions];
     localStorage.setItem("eb_transactions", JSON.stringify(updatedTransactions));
 
-    // Update portfolio quantity
-    const updatedPortfolio = data.portfolio.map(item => {
-      if (item.asset === log.asset) {
-        let q = item.quantity;
-        if (log.action_type === "Deposit" || log.action_type === "Buy") {
-          q += log.quantity;
-        } else if (log.action_type === "Withdraw" || log.action_type === "Sell") {
-          q -= log.quantity;
-        }
-        return { ...item, quantity: Math.max(0.0, q) };
-      }
-      return item;
+    // Dynamic Recalculate Logic (Vietnam tax & average cost formula fallback)
+    const sortedTxs = [...updatedTransactions].sort((a, b) => a.date.localeCompare(b.date) || (a.id || 0) - (b.id || 0));
+    const states = {};
+    
+    // Initialize defaults
+    const defaults = ["Savings", "Gold", "VN30", "Diamond"];
+    defaults.forEach(d => {
+      states[d] = { asset: d, quantity: 0.0, asset_type: "Liquid", purchase_price: 0.0, realized_pnl: 0.0 };
     });
+
+    // Populate existing asset types
+    data.portfolio.forEach(item => {
+      states[item.asset] = {
+        asset: item.asset,
+        quantity: 0.0,
+        asset_type: item.asset_type || "Liquid",
+        purchase_price: 0.0,
+        realized_pnl: 0.0
+      };
+    });
+
+    // Run chronological recalculation
+    sortedTxs.forEach(tx => {
+      if (!states[tx.asset]) {
+        // Auto classify type (e.g. contains custom static words -> Static, otherwise Liquid)
+        const isStatic = tx.asset.toLowerCase().includes("bất động sản") || 
+                       tx.asset.toLowerCase().includes("nhà đất") || 
+                       tx.asset.toLowerCase().includes("đất") || 
+                       tx.asset.toLowerCase().includes("static");
+        states[tx.asset] = {
+          asset: tx.asset,
+          quantity: 0.0,
+          asset_type: isStatic ? "Static" : "Liquid",
+          purchase_price: 0.0,
+          realized_pnl: 0.0
+        };
+      }
+      
+      const state = states[tx.asset];
+      const fee = tx.fee || 0.0;
+      const tax = tx.tax || 0.0;
+
+      if (tx.action_type === "Buy" || tx.action_type === "Deposit") {
+        const oldQty = state.quantity;
+        const oldCost = state.purchase_price;
+        state.quantity += tx.quantity;
+        if (state.quantity > 0.0) {
+          if (tx.asset === "Savings") {
+            state.purchase_price = 1.0;
+          } else {
+            state.purchase_price = ((oldQty * oldCost) + (tx.quantity * tx.price) + fee) / state.quantity;
+          }
+        } else {
+          state.purchase_price = 0.0;
+        }
+      } else if (tx.action_type === "Sell" || tx.action_type === "Withdraw") {
+        const oldQty = state.quantity;
+        const oldCost = state.purchase_price;
+        const soldQty = Math.min(tx.quantity, oldQty);
+        state.quantity = Math.max(0.0, oldQty - tx.quantity);
+        
+        if (tx.asset !== "Savings" && oldQty > 0.0) {
+          const pnl = soldQty * (tx.price - oldCost) - fee - tax;
+          state.realized_pnl += pnl;
+        }
+        if (state.quantity === 0.0) {
+          state.purchase_price = 0.0;
+        }
+      }
+    });
+
+    const updatedPortfolio = Object.values(states);
     localStorage.setItem("eb_portfolio", JSON.stringify(updatedPortfolio));
     return;
   }
@@ -150,33 +252,125 @@ async function browserMockInvoke(cmd, args) {
     const remainingTransactions = data.transactions.filter(t => t.id !== id);
     localStorage.setItem("eb_transactions", JSON.stringify(remainingTransactions));
 
-    const defaultAssets = ["Savings", "Gold", "VN30", "Diamond"];
-    const quantities = {};
-    defaultAssets.forEach(asset => {
-      quantities[asset] = 0.0;
+    // Dynamic Recalculate Logic
+    const sortedTxs = [...remainingTransactions].sort((a, b) => a.date.localeCompare(b.date) || (a.id || 0) - (b.id || 0));
+    const states = {};
+    
+    const defaults = ["Savings", "Gold", "VN30", "Diamond"];
+    defaults.forEach(d => {
+      states[d] = { asset: d, quantity: 0.0, asset_type: "Liquid", purchase_price: 0.0, realized_pnl: 0.0 };
     });
 
-    const sortedTxs = [...remainingTransactions].sort((a, b) => {
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
+    data.portfolio.forEach(item => {
+      states[item.asset] = {
+        asset: item.asset,
+        quantity: 0.0,
+        asset_type: item.asset_type || "Liquid",
+        purchase_price: 0.0,
+        realized_pnl: 0.0
+      };
+    });
+
+    sortedTxs.forEach(tx => {
+      if (!states[tx.asset]) {
+        const isStatic = tx.asset.toLowerCase().includes("bất động sản") || 
+                       tx.asset.toLowerCase().includes("nhà đất") || 
+                       tx.asset.toLowerCase().includes("đất") || 
+                       tx.asset.toLowerCase().includes("static");
+        states[tx.asset] = {
+          asset: tx.asset,
+          quantity: 0.0,
+          asset_type: isStatic ? "Static" : "Liquid",
+          purchase_price: 0.0,
+          realized_pnl: 0.0
+        };
       }
-      return (a.id || 0) - (b.id || 0);
-    });
+      
+      const state = states[tx.asset];
+      const fee = tx.fee || 0.0;
+      const tax = tx.tax || 0.0;
 
-    sortedTxs.forEach(log => {
-      const delta = (log.action_type === "Deposit" || log.action_type === "Buy") ? log.quantity : -log.quantity;
-      if (quantities[log.asset] !== undefined) {
-        quantities[log.asset] = Math.max(0.0, quantities[log.asset] + delta);
+      if (tx.action_type === "Buy" || tx.action_type === "Deposit") {
+        const oldQty = state.quantity;
+        const oldCost = state.purchase_price;
+        state.quantity += tx.quantity;
+        if (state.quantity > 0.0) {
+          if (tx.asset === "Savings") {
+            state.purchase_price = 1.0;
+          } else {
+            state.purchase_price = ((oldQty * oldCost) + (tx.quantity * tx.price) + fee) / state.quantity;
+          }
+        } else {
+          state.purchase_price = 0.0;
+        }
+      } else if (tx.action_type === "Sell" || tx.action_type === "Withdraw") {
+        const oldQty = state.quantity;
+        const oldCost = state.purchase_price;
+        const soldQty = Math.min(tx.quantity, oldQty);
+        state.quantity = Math.max(0.0, oldQty - tx.quantity);
+        
+        if (tx.asset !== "Savings" && oldQty > 0.0) {
+          const pnl = soldQty * (tx.price - oldCost) - fee - tax;
+          state.realized_pnl += pnl;
+        }
+        if (state.quantity === 0.0) {
+          state.purchase_price = 0.0;
+        }
       }
     });
 
-    const updatedPortfolio = defaultAssets.map(asset => ({
-      asset,
-      quantity: quantities[asset]
-    }));
-
+    const updatedPortfolio = Object.values(states);
     localStorage.setItem("eb_portfolio", JSON.stringify(updatedPortfolio));
     return;
+  }
+
+  if (cmd === "fetch_historical_prices") {
+    const { symbol } = args;
+    const rawSymbol = symbol.trim().toUpperCase();
+    let prices = JSON.parse(localStorage.getItem("eb_prices") || "[]");
+    const existing = prices.filter(p => p.asset === rawSymbol);
+    
+    if (existing.length === 0) {
+      const dates = [...new Set(prices.map(p => p.date))].sort();
+      const mockRecords = dates.map((date, idx) => ({
+        date,
+        asset: rawSymbol,
+        price: 22000.0 + idx * 100.0 + (Math.random() - 0.5) * 400
+      }));
+      prices = [...prices, ...mockRecords];
+      localStorage.setItem("eb_prices", JSON.stringify(prices));
+    }
+
+    let portfolio = JSON.parse(localStorage.getItem("eb_portfolio") || "[]");
+    if (!portfolio.find(p => p.asset === rawSymbol)) {
+      portfolio.push({
+        asset: rawSymbol,
+        quantity: 0.0,
+        asset_type: "Liquid",
+        purchase_price: 0.0,
+        realized_pnl: 0.0
+      });
+      localStorage.setItem("eb_portfolio", JSON.stringify(portfolio));
+    }
+
+    return prices.filter(p => p.asset === rawSymbol);
+  }
+
+  if (cmd === "parse_screenshot") {
+    const mockParsed = [
+      { asset: "HPG", quantity: 500.0, purchase_price: 28500.0 },
+      { asset: "FUEVFVND", quantity: 1000.0, purchase_price: 24500.0 },
+      { asset: "VCB", quantity: 200.0, purchase_price: 92000.0 }
+    ];
+    return JSON.stringify(mockParsed);
+  }
+
+  if (cmd === "generate_wealth_advice") {
+    return "### Đề xuất Cố vấn Tài chính AI từ Gemini (Bản Thử Nghiệm)\n\n" +
+      "Dựa trên cơ cấu tài sản hiện tại và các chỉ số kinh tế vĩ mô tại Việt Nam:\n\n" +
+      "1. **Đánh giá danh mục:** Danh mục của bạn có tính đa dạng hóa tốt nhờ sự phân bổ giữa Tiết kiệm (an toàn) và cổ phiếu/vàng. Tuy nhiên, tỷ trọng tiền mặt hiện đang cao hơn mức cần thiết nếu xét theo khẩu vị rủi ro trung bình.\n" +
+      "2. **Phân tích vĩ mô:** Trong bối cảnh lạm phát duy trì ổn định ở mức 3.8% và tỷ giá USD/VND ở mức 25,450, việc nắm giữ một phần vàng SJC và quỹ ETF VN30 là chiến lược phòng thủ và tăng trưởng hiệu quả.\n" +
+      "3. **Tái phân bổ:** Khuyến nghị thực hiện theo gợi ý từ solver để chuyển bớt một phần tiền gửi tiết kiệm sang ETF VN30 và ETF Diamond khi chỉ số VN-Index điều chỉnh về vùng hỗ trợ. Việc này giúp cải thiện lợi nhuận kỳ vọng của danh mục dài hạn lên mức trên 12%/năm.";
   }
 
   if (cmd === "run_rebalancer") {
@@ -184,8 +378,17 @@ async function browserMockInvoke(cmd, args) {
     if (lambda <= 0 || !isFinite(lambda)) {
       throw new Error("Risk aversion lambda must be a positive finite number");
     }
-    const { covMatrix, expectedReturns } = calculateCovarianceAndReturns(data.prices);
-    return solveQP(covMatrix, expectedReturns, lambda);
+
+    const liquidAssets = data.portfolio
+      .filter(item => item.asset_type === "Liquid")
+      .map(item => item.asset);
+
+    if (liquidAssets.length === 0) {
+      throw new Error("No liquid assets found to optimize");
+    }
+
+    const { covMatrix, expectedReturns } = calculateCovarianceAndReturns(data.prices, liquidAssets);
+    return solveQP(covMatrix, expectedReturns, liquidAssets, lambda);
   }
 
   if (cmd === "sync_market_data") {
@@ -229,6 +432,8 @@ async function browserMockInvoke(cmd, args) {
       localStorage.setItem("eb_portfolio", JSON.stringify(parsed.data.portfolio));
       localStorage.setItem("eb_prices", JSON.stringify(parsed.data.prices));
       localStorage.setItem("eb_transactions", JSON.stringify(parsed.data.transactions));
+      if (parsed.data.settings) localStorage.setItem("eb_settings", JSON.stringify(parsed.data.settings));
+      if (parsed.data.macros) localStorage.setItem("eb_macro_indicators", JSON.stringify(parsed.data.macros));
     } catch (e) {
       throw new Error("Lỗi phân tích cú pháp JSON hoặc định dạng bản sao lưu không hợp lệ: " + e.message);
     }
@@ -238,7 +443,7 @@ async function browserMockInvoke(cmd, args) {
   throw new Error(`Unknown command: ${cmd}`);
 }
 
-function calculateCovarianceAndReturns(prices) {
+function calculateCovarianceAndReturns(prices, assets) {
   const dateMap = {};
   prices.forEach(p => {
     if (!dateMap[p.date]) {
@@ -252,57 +457,106 @@ function calculateCovarianceAndReturns(prices) {
     throw new Error("Require at least 3 dates of historical price records");
   }
 
-  const assets = ["Savings", "Gold", "VN30", "Diamond"];
   const numAssets = assets.length;
   const numDates = dates.length;
 
   const priceMatrix = [];
+  
+  // Verify price availability and apply Forward-Fill / Backward-Fill fallback
+  for (let i = 0; i < numAssets; i++) {
+    const asset = assets[i];
+    let hasAnyPrice = false;
+    for (let t = 0; t < numDates; t++) {
+      if (dateMap[dates[t]][asset] !== undefined) {
+        hasAnyPrice = true;
+        break;
+      }
+    }
+    if (!hasAnyPrice) {
+      throw new Error(`No price history found for asset ${asset}`);
+    }
+  }
+
   for (let t = 0; t < numDates; t++) {
-    const dayPrices = dateMap[dates[t]];
+    const date = dates[t];
     const row = [];
     for (let i = 0; i < numAssets; i++) {
-      const price = dayPrices[assets[i]];
+      const asset = assets[i];
+      let price = dateMap[date][asset];
+      
       if (price === undefined) {
-        throw new Error(`Missing price for ${assets[i]} on date ${dates[t]}`);
+        // Try forward-fill
+        let foundPrev = null;
+        for (let prevT = t - 1; prevT >= 0; prevT--) {
+          if (dateMap[dates[prevT]][asset] !== undefined) {
+            foundPrev = dateMap[dates[prevT]][asset];
+            break;
+          }
+        }
+        if (foundPrev !== null) {
+          price = foundPrev;
+        } else {
+          // Backward-fill fallback
+          let foundNext = null;
+          for (let nextT = t + 1; nextT < numDates; nextT++) {
+            if (dateMap[dates[nextT]][asset] !== undefined) {
+              foundNext = dateMap[dates[nextT]][asset];
+              break;
+            }
+          }
+          price = foundNext;
+        }
       }
       row.push(price);
     }
     priceMatrix.push(row);
   }
 
+  const isSavingsAsset = (name) => name === "Savings" || name === "Tiết kiệm";
+
   const numReturns = numDates - 1;
   const returnMatrix = [];
   for (let t = 0; t < numReturns; t++) {
     const row = [];
-    const rateT = priceMatrix[t + 1][0];
-    row.push(rateT / 250.0);
-
-    for (let i = 1; i < numAssets; i++) {
-      const pPrev = priceMatrix[t][i];
-      const pCurr = priceMatrix[t + 1][i];
-      row.push((pCurr - pPrev) / pPrev);
+    for (let i = 0; i < numAssets; i++) {
+      const asset = assets[i];
+      if (isSavingsAsset(asset)) {
+        row.push(priceMatrix[t + 1][i] / 250.0);
+      } else {
+        const pPrev = priceMatrix[t][i];
+        const pCurr = priceMatrix[t + 1][i];
+        row.push((pCurr - pPrev) / pPrev);
+      }
     }
     returnMatrix.push(row);
   }
 
   const expectedReturns = [];
-  expectedReturns.push(priceMatrix[numDates - 1][0]);
-  for (let i = 1; i < numAssets; i++) {
-    let sum = 0;
-    for (let t = 0; t < numReturns; t++) {
-      sum += returnMatrix[t][i];
+  for (let i = 0; i < numAssets; i++) {
+    const asset = assets[i];
+    if (isSavingsAsset(asset)) {
+      expectedReturns.push(priceMatrix[numDates - 1][i]);
+    } else {
+      let sum = 0;
+      for (let t = 0; t < numReturns; t++) {
+        sum += returnMatrix[t][i];
+      }
+      expectedReturns.push((sum / numReturns) * 250.0);
     }
-    expectedReturns.push((sum / numReturns) * 250.0);
   }
 
   const colMeans = [];
-  colMeans.push(expectedReturns[0] / 250.0);
-  for (let i = 1; i < numAssets; i++) {
-    let sum = 0;
-    for (let t = 0; t < numReturns; t++) {
-      sum += returnMatrix[t][i];
+  for (let i = 0; i < numAssets; i++) {
+    const asset = assets[i];
+    if (isSavingsAsset(asset)) {
+      colMeans.push(expectedReturns[i] / 250.0);
+    } else {
+      let sum = 0;
+      for (let t = 0; t < numReturns; t++) {
+        sum += returnMatrix[t][i];
+      }
+      colMeans.push(sum / numReturns);
     }
-    colMeans.push(sum / numReturns);
   }
 
   const covMatrix = [];
@@ -329,45 +583,42 @@ function calculateCovarianceAndReturns(prices) {
   return { covMatrix, expectedReturns };
 }
 
-function solveQP(cov, R, lambda) {
-  const assets = ["Savings", "Gold", "VN30", "Diamond"];
+function solveQP(cov, R, assets, lambda) {
   const n = assets.length;
 
-  let bestWeights = null;
+  let bestWeights = new Array(n).fill(1.0 / n);
   let bestVal = Infinity;
 
-  const step = 0.01;
-  const numSteps = 100;
+  // Run 10000 random samples to find the minimum of the quadratic objective
+  for (let step = 0; step < 10000; step++) {
+    const w = [];
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const val = Math.random();
+      w.push(val);
+      sum += val;
+    }
+    for (let i = 0; i < n; i++) {
+      w[i] /= sum;
+    }
 
-  for (let i0 = 0; i0 <= numSteps; i0++) {
-    const w0 = i0 / numSteps;
-    for (let i1 = 0; i1 <= numSteps - i0; i1++) {
-      const w1 = i1 / numSteps;
-      for (let i2 = 0; i2 <= numSteps - i0 - i1; i2++) {
-        const w2 = i2 / numSteps;
-        const w3 = 1.0 - w0 - w1 - w2;
-
-        const w = [w0, w1, w2, w3];
-
-        let variance = 0;
-        for (let r = 0; r < n; r++) {
-          for (let c = 0; c < n; c++) {
-            variance += w[r] * cov[r][c] * w[c];
-          }
-        }
-
-        let expectedReturn = 0;
-        for (let r = 0; r < n; r++) {
-          expectedReturn += w[r] * R[r];
-        }
-
-        const objVal = 0.5 * lambda * variance - expectedReturn;
-
-        if (objVal < bestVal) {
-          bestVal = objVal;
-          bestWeights = [...w];
-        }
+    let variance = 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        variance += w[r] * cov[r][c] * w[c];
       }
+    }
+
+    let expectedReturn = 0;
+    for (let r = 0; r < n; r++) {
+      expectedReturn += w[r] * R[r];
+    }
+
+    const objVal = 0.5 * lambda * variance - expectedReturn;
+
+    if (objVal < bestVal) {
+      bestVal = objVal;
+      bestWeights = [...w];
     }
   }
 

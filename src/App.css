@@ -642,18 +642,81 @@ button:active {
 
 @media (max-width: 600px) {
   input, select, button {
-    font-size: 16px !important; /* Prevents auto-zoom on iOS inputs */
+    font-size: 16px !important;
   }
 
   .form-grid {
     grid-template-columns: 1fr;
   }
 
-  /* Increase tap target heights for mobile */
   .btn-primary, .btn-secondary, button {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
+}
+
+/* Screenshot Upload Zone & Hover States */
+.screenshot-zone {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.screenshot-zone:hover {
+  background-color: rgba(99, 102, 241, 0.04);
+  border-color: #6366f1 !important;
+}
+
+/* Table Input Styling for Draft Table */
+.table-input {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  background-color: #1a1c26;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.table-input:focus {
+  border-color: #6366f1;
+}
+
+/* Yellow Sync Warning Banner */
+.alert-warning-sync {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-left: 4px solid var(--color-warning);
+  color: #fbd38d;
+}
+
+/* Advisor Report Formatting */
+.advisor-report-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.advisor-report-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.advisor-report-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.advisor-report-container h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #a5b4fc;
+}
+
+.advisor-report-container p {
+  margin-bottom: 0.75rem;
+}
+
+.advisor-report-container ul, .advisor-report-container ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
 }

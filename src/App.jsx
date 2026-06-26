@@ -952,7 +952,7 @@ function App() {
                         <input 
                           type="number" 
                           step="any"
-                          placeholder={`Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ`}
+                          placeholder={latestPrices[formAsset] !== undefined ? `Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ` : "Nhập giá giao dịch..."}
                           value={formPrice}
                           onChange={(e) => setFormPrice(e.target.value)}
                         />

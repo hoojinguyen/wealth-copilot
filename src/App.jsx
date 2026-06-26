@@ -876,8 +876,9 @@ function App() {
                 <form onSubmit={handleAddTransaction}>
                   <div className="form-grid">
                     <div className="form-group">
-                      <label>Loại tài sản</label>
+                      <label htmlFor="form-asset-select">Loại tài sản</label>
                       <select 
+                        id="form-asset-select"
                         value={formAssetSelect} 
                         onChange={(e) => {
                           const val = e.target.value;
@@ -899,8 +900,9 @@ function App() {
 
                     {formAssetSelect === "Custom" && (
                       <div className="form-group">
-                        <label>Nhập mã tài sản tự chọn</label>
+                        <label htmlFor="form-asset-custom">Nhập mã tài sản tự chọn</label>
                         <input 
+                          id="form-asset-custom"
                           type="text" 
                           required
                           placeholder="Ví dụ: HPG, TCB, VCB, VCG..." 
@@ -911,8 +913,9 @@ function App() {
                     )}
 
                     <div className="form-group">
-                      <label>Hành động</label>
+                      <label htmlFor="form-action-select">Hành động</label>
                       <select 
+                        id="form-action-select"
                         value={formAction} 
                         onChange={(e) => setFormAction(e.target.value)}
                       >
@@ -933,10 +936,11 @@ function App() {
 
                   <div className="form-grid">
                     <div className="form-group">
-                      <label>
+                      <label htmlFor="form-quantity-input">
                         {formAsset === "Savings" ? "Số tiền nạp/rút (VND)" : "Số lượng giao dịch (lượng/CCQ)"}
                       </label>
                       <input 
+                        id="form-quantity-input"
                         type="number" 
                         step="any"
                         required
@@ -948,8 +952,9 @@ function App() {
 
                     {formAsset !== "Savings" && (
                       <div className="form-group">
-                        <label>Giá thị trường lúc giao dịch (đ/lượng hoặc đ/CCQ)</label>
+                        <label htmlFor="form-price-input">Giá thị trường lúc giao dịch (đ/lượng hoặc đ/CCQ)</label>
                         <input 
+                          id="form-price-input"
                           type="number" 
                           step="any"
                           placeholder={latestPrices[formAsset] !== undefined ? `Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ` : "Nhập giá giao dịch..."}
@@ -963,8 +968,9 @@ function App() {
                   {formAsset !== "Savings" && (
                     <div className="form-grid" style={{ marginTop: "0.5rem" }}>
                       <div className="form-group">
-                        <label>Phí giao dịch (VND) - mặc định 0.15%</label>
+                        <label htmlFor="form-fee-input">Phí giao dịch (VND) - mặc định 0.15%</label>
                         <input 
+                          id="form-fee-input"
                           type="number" 
                           step="any"
                           placeholder="Phí giao dịch..."
@@ -973,8 +979,9 @@ function App() {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Thuế bán (VND) - mặc định 0.1% (chỉ khi Bán)</label>
+                        <label htmlFor="form-tax-input">Thuế bán (VND) - mặc định 0.1% (chỉ khi Bán)</label>
                         <input 
+                          id="form-tax-input"
                           type="number" 
                           step="any"
                           placeholder="Thuế giao dịch..."
@@ -987,8 +994,9 @@ function App() {
                   )}
 
                   <div className="form-group" style={{ marginBottom: "1rem", marginTop: "0.5rem" }}>
-                    <label>Ngày giao dịch</label>
+                    <label htmlFor="form-date-input">Ngày giao dịch</label>
                     <input 
+                      id="form-date-input"
                       type="date" 
                       required
                       value={formDate}

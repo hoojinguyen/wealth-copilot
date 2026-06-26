@@ -21,7 +21,7 @@ pub fn perform_sync_network(
     repo_name: &str,
 ) -> Result<Vec<AssetPriceRecord>, AppError> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent("eager-bell-app")
+        .user_agent("wealth-copilot-app")
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 

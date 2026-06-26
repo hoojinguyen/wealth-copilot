@@ -43,8 +43,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: eager-bell-${{ github.ref_name }}
-          releaseName: "eager-bell ${{ github.ref_name }}"
+          tagName: wealth-copilot-${{ github.ref_name }}
+          releaseName: "wealth-copilot ${{ github.ref_name }}"
           releaseBody: "Release build of AI Personal Wealth Copilot."
           releaseDraft: true
           prerelease: false

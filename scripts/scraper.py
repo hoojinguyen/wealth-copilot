@@ -8,7 +8,7 @@ import argparse
 
 # Configuration
 REPO_OWNER = "hoojinguyen"
-REPO_NAME = "eager-bell"
+REPO_NAME = "wealth-copilot"
 RELEASE_TAG = "latest-data" # We keep data on a dedicated release tag to avoid cluttering app binary releases
 FILENAME = "market_data.json.gz"
 
@@ -165,7 +165,7 @@ def upload_to_github(data_bytes):
         payload = {
             "tag_name": RELEASE_TAG,
             "name": "Market Data Sync",
-            "body": "Daily SJC Gold, ETF prices, and interest rates for eager-bell sync.",
+            "body": "Daily SJC Gold, ETF prices, and interest rates for wealth-copilot sync.",
             "draft": False,
             "prerelease": False
         }

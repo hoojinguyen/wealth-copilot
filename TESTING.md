@@ -1,4 +1,4 @@
-# Testing in eager-bell
+# Testing in Wealth Copilot
 
 > "100% test coverage is the key to great vibe coding. Tests let you move fast, trust your instincts, and ship with confidence — without them, vibe coding is just yolo coding. With tests, it's a superpower."
 
@@ -49,7 +49,7 @@ import App from "./App";
 
 test("renders the app layout successfully", async () => {
   render(<App />);
-  const element = await screen.findByText("eager-bell");
+  const element = await screen.findByText("Wealth Copilot");
   expect(element).toBeInTheDocument();
 });
 ```

@@ -286,7 +286,7 @@ function App() {
     <div className="app-container">
       <header>
         <div className="brand-section">
-          <h1>eager-bell</h1>
+          <h1>Wealth Copilot</h1>
           <p>Cố Vấn Phân Bổ & Tái Cơ Cấu Tài Sản Cá Nhân Thông Minh (Việt Nam)</p>
         </div>
         <div className="header-actions">
@@ -362,7 +362,7 @@ function App() {
         <>
           {transactions.length === 0 && (
             <div className="onboarding-banner">
-              <h3>👋 Chào mừng đến với eager-bell!</h3>
+              <h3>👋 Chào mừng đến với Wealth Copilot!</h3>
               <p>
                 Đây là ứng dụng Cố vấn tài sản cá nhân local-first của bạn. Để bắt đầu:
               </p>

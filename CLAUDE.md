@@ -1,4 +1,4 @@
-# eager-bell Developer Guide
+# Wealth Copilot Developer Guide
 
 ## Build and Run Commands
 - **Dev Server (web preview):** `npm run dev`

@@ -1,6 +1,6 @@
-# Design System & Style Reference: eager-bell
+# Design System & Style Reference: Wealth Copilot
 
-This document serves as the visual reference and design system documentation for the `eager-bell` asset rebalancer web application.
+This document serves as the visual reference and design system documentation for the `wealth-copilot` asset rebalancer web application.
 
 ---
 

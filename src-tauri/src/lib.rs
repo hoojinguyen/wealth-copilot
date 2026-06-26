@@ -70,7 +70,7 @@ fn run_rebalancer(
 #[tauri::command]
 fn sync_market_data(state: tauri::State<'_, AppState>) -> Result<(), AppError> {
     // 1. Run the sync process network call OUTSIDE of database mutex lock
-    let synced_prices = sync::perform_sync_network("hoojinguyen", "eager-bell")?;
+    let synced_prices = sync::perform_sync_network("hoojinguyen", "wealth-copilot")?;
 
     // 2. Acquire lock only to write to SQLite
     let mut conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
@@ -126,7 +126,7 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir().expect("Failed to get App Data directory");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create App Data directory");
             
-            let db_path = app_data_dir.join("eager-bell.db");
+            let db_path = app_data_dir.join("wealth-copilot.db");
             let mut conn = rusqlite::Connection::open(db_path).expect("Failed to open SQLite database");
 
             db::init_db(&conn)?;

@@ -1,4 +1,4 @@
-# eager-bell - Deferred Tasks (Design & Features)
+# Wealth Copilot - Deferred Tasks (Design & Features)
 
 ## Interactive Donut Chart Hover Tooltips [Severity: Low / UX]
 - **What:** Add interactive hover tooltips to the SVG Ring Chart to display the asset name, quantity, and market value when hovering over chart segments.

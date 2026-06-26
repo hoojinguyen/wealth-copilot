@@ -22,7 +22,7 @@ test("should load the application and render successfully in a browser environme
   render(<App />);
 
   // Wait for the main title to appear
-  const title = await screen.findByText("eager-bell", {}, { timeout: 2000 });
+  const title = await screen.findByText("Wealth Copilot", {}, { timeout: 2000 });
   expect(title).toBeInTheDocument();
 
   // Verify that the table header is loaded

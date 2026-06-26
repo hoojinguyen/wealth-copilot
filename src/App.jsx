@@ -578,8 +578,9 @@ function App() {
           <form onSubmit={handleSaveSettings} style={{ marginTop: "1rem" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
               <div className="form-group">
-                <label>Gemini API Key (lưu trữ local bảo mật)</label>
+                <label htmlFor="settings-api-key">Gemini API Key (lưu trữ local bảo mật)</label>
                 <input 
+                  id="settings-api-key"
                   type="password" 
                   placeholder="Dán API Key từ Google AI Studio..." 
                   value={apiKey} 
@@ -587,8 +588,9 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)</label>
+                <label htmlFor="settings-proxy-url">Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)</label>
                 <input 
+                  id="settings-proxy-url"
                   type="text" 
                   placeholder="Ví dụ: http://localhost:7890 hoặc Reverse Proxy Endpoint" 
                   value={proxyUrl} 
@@ -610,8 +612,9 @@ function App() {
           <h3>Quản lý sao lưu dữ liệu</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "1rem" }}>
             <div>
-              <label>Dữ liệu sao lưu hiện tại (JSON)</label>
+              <label htmlFor="backup-export-text">Dữ liệu sao lưu hiện tại (JSON)</label>
               <textarea 
+                id="backup-export-text"
                 className="backup-textarea" 
                 readOnly 
                 value={backupText} 
@@ -622,8 +625,9 @@ function App() {
               </button>
             </div>
             <div>
-              <label>Dán dữ liệu sao lưu để khôi phục</label>
+              <label htmlFor="backup-import-text">Dán dữ liệu sao lưu để khôi phục</label>
               <textarea 
+                id="backup-import-text"
                 className="backup-textarea" 
                 value={importText} 
                 onChange={(e) => setImportText(e.target.value)}

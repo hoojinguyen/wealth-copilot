@@ -43,7 +43,8 @@ function getAssetDisplayName(asset) {
 }
 
 function App() {
-  // App State
+  // App State & Theme
+  const [theme, setTheme] = useState("dark");
   const [portfolio, setPortfolio] = useState([]);
   const [prices, setPrices] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -85,6 +86,11 @@ function App() {
   const [showBackupDrawer, setShowBackupDrawer] = useState(false);
   const [backupText, setBackupText] = useState("");
   const [importText, setImportText] = useState("");
+
+  // Sync theme to document element
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   // Load state on startup
   useEffect(() => {
@@ -525,6 +531,13 @@ function App() {
           <p>Cố Vấn Tài Sản & Tái Cơ Cấu Thông Minh local-first (Việt Nam)</p>
         </div>
         <div className="header-actions">
+          {/* Theme switch button */}
+          <button 
+            className="btn-secondary btn-small"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+          </button>
           <button 
             className="btn-secondary btn-small"
             onClick={() => setShowSettings(!showSettings)}
@@ -550,7 +563,7 @@ function App() {
 
       {/* Warning Banner */}
       {isSyncWarning && (
-        <div className="alert alert-warning-sync" style={{ marginBottom: "1.5rem" }}>
+        <div className="alert alert-warning-sync">
           <span className="alert-title">⚠️ Dữ liệu giá thị trường chưa đồng bộ mới nhất</span>
           <span className="alert-content">
             Lần đồng bộ giá thị trường gần nhất là <strong>{latestPriceDate || "chưa rõ"}</strong> (đã quá 5 ngày). Hãy bấm <strong>"Đồng bộ giá thị trường"</strong> để solver sử dụng dữ liệu mới nhất.
@@ -573,7 +586,7 @@ function App() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="settings-drawer card" style={{ marginBottom: "1.5rem" }}>
+        <div className="settings-drawer">
           <h3>⚙️ Cấu hình Gemini API & Kết nối mạng</h3>
           <form onSubmit={handleSaveSettings} style={{ marginTop: "1rem" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
@@ -599,8 +612,8 @@ function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-              <button type="submit" className="btn-primary btn-small">Lưu Cấu Hình</button>
-              <button type="button" className="btn-secondary btn-small" onClick={() => setShowSettings(false)}>Hủy</button>
+              <button type="submit" className="btn btn-primary btn-small">Lưu Cấu Hình</button>
+              <button type="button" className="btn btn-secondary btn-small" onClick={() => setShowSettings(false)}>Hủy</button>
             </div>
           </form>
         </div>
@@ -608,7 +621,7 @@ function App() {
 
       {/* Backup Drawer */}
       {showBackupDrawer && (
-        <div className="backup-drawer card" style={{ marginBottom: "1.5rem" }}>
+        <div className="backup-drawer">
           <h3>Quản lý sao lưu dữ liệu</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "1rem" }}>
             <div>
@@ -620,7 +633,7 @@ function App() {
                 value={backupText} 
                 placeholder="Click 'Xuất sao lưu' để tạo mã backup..."
               />
-              <button className="btn-secondary btn-small" onClick={handleExportBackup}>
+              <button className="btn btn-secondary btn-small" onClick={handleExportBackup}>
                 Xuất sao lưu & Sao chép
               </button>
             </div>
@@ -633,7 +646,7 @@ function App() {
                 onChange={(e) => setImportText(e.target.value)}
                 placeholder="Dán nội dung JSON sao lưu vào đây..."
               />
-              <button className="btn-primary btn-small" onClick={handleImportBackup}>
+              <button className="btn btn-primary btn-small" onClick={handleImportBackup}>
                 Khôi phục từ bản dán
               </button>
             </div>
@@ -662,25 +675,24 @@ function App() {
             </div>
           )}
 
-          <div className="dashboard-grid">
-            {/* LEFT COLUMN: Portfolio, Ingestion & Form */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              
+          <div className="dashboard-container">
+            {/* SIDEBAR ON THE LEFT */}
+            <aside className="app-sidebar">
               {/* Screenshot Ingestion Area */}
-              <div className="card">
-                <h2>📸 Bóc tách ảnh chụp màn hình (Screenshot Ingestion)</h2>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                  Tải lên ảnh chụp danh mục tài sản từ TCBS hoặc các sàn chứng khoán Việt Nam khác để Gemini Vision tự động phân tích và tạo bảng duyệt nháp.
+              <div className="sidebar-section">
+                <h2>📸 Bóc tách ảnh chụp màn hình</h2>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: "1.4" }}>
+                  Tải lên ảnh chụp danh mục tài sản từ TCBS hoặc sàn Việt Nam khác để phân tích tự động.
                 </p>
-                <div className="screenshot-zone" style={{ border: "2px dashed var(--border-color)", padding: "1.5rem", borderRadius: "8px", textAlign: "center", cursor: "pointer", position: "relative" }}>
+                <div className="screenshot-zone" style={{ position: "relative" }}>
                   {isUploading ? (
                     <div>
                       <span className="spinner" style={{ width: "24px", height: "24px", display: "inline-block" }}></span>
-                      <p style={{ marginTop: "0.5rem" }}>Gemini Vision đang bóc tách dữ liệu...</p>
+                      <p style={{ marginTop: "0.5rem" }}>Gemini Vision đang bóc tách...</p>
                     </div>
                   ) : (
                     <div>
-                      <p>Kéo & thả ảnh chụp màn hình vào đây hoặc click để chọn file</p>
+                      <p>Kéo & thả ảnh vào đây hoặc click để chọn</p>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -693,18 +705,17 @@ function App() {
 
                 {/* Verify Draft Table */}
                 {draftItems.length > 0 && (
-                  <div className="draft-table-section" style={{ marginTop: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                      <h3>📋 Bảng Duyệt Nháp (Verify & Edit Draft)</h3>
-                      <button className="btn-secondary btn-small" onClick={handleAddDraftItem}>+ Thêm dòng</button>
+                  <div className="draft-table-section" style={{ marginTop: "1.5rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                      <h3>📋 Bản nháp</h3>
+                      <button className="btn btn-secondary btn-xs" onClick={handleAddDraftItem}>+ Thêm dòng</button>
                     </div>
                     <table style={{ width: "100%", marginBottom: "1rem" }}>
                       <thead>
                         <tr>
-                          <th>Mã Tài Sản</th>
-                          <th>Số Lượng</th>
-                          <th>Giá Vốn (đ)</th>
-                          <th style={{ width: "80px" }}>Thao tác</th>
+                          <th>Mã</th>
+                          <th className="num-col">SL</th>
+                          <th className="num-col">Giá vốn</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -721,7 +732,7 @@ function App() {
                             <td>
                               <input 
                                 type="number" 
-                                className="table-input"
+                                className="table-input num-col"
                                 value={item.quantity || ""} 
                                 onChange={(e) => handleUpdateDraftItem(idx, "quantity", e.target.value)} 
                               />
@@ -729,508 +740,541 @@ function App() {
                             <td>
                               <input 
                                 type="number" 
-                                className="table-input"
+                                className="table-input num-col"
                                 value={item.purchase_price || ""} 
                                 onChange={(e) => handleUpdateDraftItem(idx, "purchase_price", e.target.value)} 
                               />
                             </td>
-                            <td>
-                              <button className="btn-danger btn-xs" onClick={() => handleDeleteDraftItem(idx)}>Xóa</button>
-                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <div style={{ display: "flex", gap: "1rem" }}>
-                      <button className="btn-primary btn-small btn-full" onClick={handleSaveDraft}>
-                        ✔️ Đồng ý và Lưu vào SQLite
-                      </button>
-                      <button className="btn-secondary btn-small" onClick={() => setDraftItems([])}>Hủy</button>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button className="btn btn-primary btn-xs" style={{ flex: 1 }} onClick={handleSaveDraft}>Lưu</button>
+                      <button className="btn btn-secondary btn-xs" onClick={() => setDraftItems([])}>Hủy</button>
                     </div>
                   </div>
                 )}
               </div>
+            </aside>
 
-              {/* Portfolio Status Card */}
-              <div className="card">
-                <h2>Tổng quan danh mục hiện tại</h2>
-                
-                <div className="chart-section">
-                  {/* SVG Ring Chart */}
-                  <div className="chart-container">
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-                      {totalPortfolioValue === 0 ? (
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#222436"
-                          strokeWidth={strokeWidth}
-                        />
-                      ) : (
-                        (() => {
-                          let accumulated = 0;
-                          return portfolioWithValues.map(item => {
-                            const percentage = item.value / totalPortfolioValue;
-                            const strokeLength = percentage * circumference;
-                            const strokeOffset = circumference - strokeLength + accumulated;
-                            accumulated -= strokeLength;
-                            
-                            if (percentage === 0) return null;
-
-                            return (
-                              <circle
-                                key={item.asset}
-                                cx={size / 2}
-                                cy={size / 2}
-                                r={radius}
-                                fill="none"
-                                stroke={item.color}
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeOffset}
-                                strokeLinecap={percentage > 0.03 ? "round" : "butt"}
-                                style={{ transition: "stroke-dashoffset 0.4s ease" }}
-                              />
-                            );
-                          });
-                        })()
-                      )}
-                    </svg>
-                    <div className="chart-center-text">
-                      <div className="chart-total-value">
-                        {formatVND(totalPortfolioValue)}
-                      </div>
-                      <div className="chart-total-label">Tổng tài sản</div>
-                    </div>
-                  </div>
-
-                  {/* Legend list */}
-                  <div className="chart-legend">
-                    {portfolioWithValues.map(item => (
-                      <div key={item.asset} className="legend-item" style={{ borderLeft: `4px solid ${item.color}`, paddingLeft: "8px", margin: "4px 0" }}>
-                        <span className="legend-label">
-                          {item.nameVi} 
-                          {item.asset_type === "Static" && <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}> (Tĩnh)</span>}
-                        </span>
-                        <span className="legend-value">
-                          {totalPortfolioValue > 0 
-                            ? `${((item.value / totalPortfolioValue) * 100).toFixed(1)}%` 
-                            : "0.0%"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Table of Assets */}
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tài sản</th>
-                      <th>Loại</th>
-                      <th>Số lượng</th>
-                      <th>Giá vốn TB</th>
-                      <th>Tổng giá trị</th>
-                      <th>Lãi/Lỗ thực tế</th>
-                      <th>Tỷ trọng</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {portfolioWithValues.map(item => (
-                      <tr key={item.asset}>
-                        <td>
-                          <span className="asset-badge">
-                            <span className="asset-dot" style={{ backgroundColor: item.color }}></span>
-                            {item.nameVi}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: "0.8rem", color: item.asset_type === "Liquid" ? "var(--color-success)" : "var(--text-secondary)" }}>
-                            {item.asset_type === "Liquid" ? "Thanh khoản" : "Tĩnh/Khóa"}
-                          </span>
-                        </td>
-                        <td>
-                          {item.asset === "Savings" 
-                            ? formatVND(item.quantity)
-                            : `${item.quantity.toLocaleString("vi-VN")} ${item.asset === "Gold" ? "lượng" : "đơn vị"}`}
-                        </td>
-                        <td>{item.asset === "Savings" ? "—" : formatVND(item.purchase_price)}</td>
-                        <td>{formatVND(item.value)}</td>
-                        <td>
-                          <span style={{ color: item.realized_pnl >= 0 ? "var(--color-success)" : "var(--color-error)", fontWeight: "600" }}>
-                            {item.realized_pnl !== 0 ? formatVND(item.realized_pnl) : "—"}
-                          </span>
-                        </td>
-                        <td>
-                          {totalPortfolioValue > 0 
-                            ? `${((item.value / totalPortfolioValue) * 100).toFixed(1)}%`
-                            : "0.0%"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Record Transaction Form */}
-              <div className="card">
-                <h2>Ghi nhận giao dịch tài sản</h2>
-                <form onSubmit={handleAddTransaction}>
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label htmlFor="form-asset-select">Loại tài sản</label>
-                      <select 
-                        id="form-asset-select"
-                        value={formAssetSelect} 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormAssetSelect(val);
-                          if (val === "Savings") {
-                            setFormAction("Deposit");
-                          } else {
-                            setFormAction("Buy");
-                          }
-                        }}
-                      >
-                        <option value="Savings">Tiết kiệm</option>
-                        <option value="Gold">Vàng SJC</option>
-                        <option value="VN30">ETF VN30</option>
-                        <option value="Diamond">ETF Diamond</option>
-                        <option value="Custom">Khác (Nhập mã tự chọn)...</option>
-                      </select>
-                    </div>
-
-                    {formAssetSelect === "Custom" && (
-                      <div className="form-group">
-                        <label htmlFor="form-asset-custom">Nhập mã tài sản tự chọn</label>
-                        <input 
-                          id="form-asset-custom"
-                          type="text" 
-                          required
-                          placeholder="Ví dụ: HPG, TCB, VCB, VCG..." 
-                          value={formAssetCustom}
-                          onChange={(e) => setFormAssetCustom(e.target.value.toUpperCase())}
-                        />
-                      </div>
-                    )}
-
-                    <div className="form-group">
-                      <label htmlFor="form-action-select">Hành động</label>
-                      <select 
-                        id="form-action-select"
-                        value={formAction} 
-                        onChange={(e) => setFormAction(e.target.value)}
-                      >
-                        {formAsset === "Savings" ? (
-                          <>
-                            <option value="Deposit">Gửi thêm (Deposit)</option>
-                            <option value="Withdraw">Rút tiền (Withdraw)</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="Buy">Mua vào (Buy)</option>
-                            <option value="Sell">Bán ra (Sell)</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label htmlFor="form-quantity-input">
-                        {formAsset === "Savings" ? "Số tiền nạp/rút (VND)" : "Số lượng giao dịch (lượng/CCQ)"}
-                      </label>
-                      <input 
-                        id="form-quantity-input"
-                        type="number" 
-                        step="any"
-                        required
-                        placeholder={formAsset === "Savings" ? "Ví dụ: 10000000" : "Ví dụ: 2.5"} 
-                        value={formQty}
-                        onChange={(e) => setFormQty(e.target.value)}
-                      />
-                    </div>
-
-                    {formAsset !== "Savings" && (
-                      <div className="form-group">
-                        <label htmlFor="form-price-input">Giá thị trường lúc giao dịch (đ/lượng hoặc đ/CCQ)</label>
-                        <input 
-                          id="form-price-input"
-                          type="number" 
-                          step="any"
-                          placeholder={latestPrices[formAsset] !== undefined ? `Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ` : "Nhập giá giao dịch..."}
-                          value={formPrice}
-                          onChange={(e) => setFormPrice(e.target.value)}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {formAsset !== "Savings" && (
-                    <div className="form-grid" style={{ marginTop: "0.5rem" }}>
-                      <div className="form-group">
-                        <label htmlFor="form-fee-input">Phí giao dịch (VND) - mặc định 0.15%</label>
-                        <input 
-                          id="form-fee-input"
-                          type="number" 
-                          step="any"
-                          placeholder="Phí giao dịch..."
-                          value={formFee}
-                          onChange={(e) => setFormFee(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="form-tax-input">Thuế bán (VND) - mặc định 0.1% (chỉ khi Bán)</label>
-                        <input 
-                          id="form-tax-input"
-                          type="number" 
-                          step="any"
-                          placeholder="Thuế giao dịch..."
-                          value={formTax}
-                          disabled={formAction !== "Sell"}
-                          onChange={(e) => setFormTax(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="form-group" style={{ marginBottom: "1rem", marginTop: "0.5rem" }}>
-                    <label htmlFor="form-date-input">Ngày giao dịch</label>
-                    <input 
-                      id="form-date-input"
-                      type="date" 
-                      required
-                      value={formDate}
-                      onChange={(e) => setFormDate(e.target.value)}
-                    />
-                  </div>
-
-                  <button type="submit" className="btn-primary btn-full">
-                    Lưu giao dịch & Cập nhật
-                  </button>
-                </form>
-              </div>
+            {/* MAIN DASHBOARD PANEL ON THE RIGHT */}
+            <div className="main-panel">
               
-              {/* Transaction History Card */}
-              <div className="card transaction-history-card">
-                <h2>Lịch sử giao dịch</h2>
-                {transactions.length === 0 ? (
-                  <div className="empty-state">Chưa có giao dịch nào được ghi nhận.</div>
-                ) : (
-                  <div className="transaction-list-container">
-                    <table className="transaction-table">
+              {/* Top Stats Bar */}
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span className="stat-label">Tổng giá trị tài sản</span>
+                  <span className="stat-value">{formatVND(totalPortfolioValue)}</span>
+                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>Định giá local-first</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Lợi nhuận kỳ vọng</span>
+                  <span className="stat-value">
+                    {optimalResult ? `${(optimalResult.expected_return * 100).toFixed(2)}%` : "—"}
+                  </span>
+                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>/ năm</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Độ biến động (Volatility)</span>
+                  <span className="stat-value">
+                    {optimalResult ? `${(optimalResult.volatility * 100).toFixed(2)}%` : "—"}
+                  </span>
+                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>/ năm</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Chỉ số Sharpe</span>
+                  <span className="stat-value">
+                    {optimalResult && optimalResult.volatility > 0 
+                      ? (optimalResult.expected_return / optimalResult.volatility).toFixed(2)
+                      : "—"}
+                  </span>
+                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>Tỷ suất sinh lời</span>
+                </div>
+              </div>
+
+              {/* 2-Column Core Split Layout */}
+              <div className="main-grid-split">
+                
+                {/* Left Split Column: Portfolio list table, record form, transaction history */}
+                <div className="content-column">
+                  
+                  {/* Portfolio Status Card */}
+                  <div className="card">
+                    <h2>Tổng quan danh mục hiện tại</h2>
+                    
+                    <div className="chart-section">
+                      {/* SVG Ring Chart */}
+                      <div className="chart-container">
+                        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+                          {totalPortfolioValue === 0 ? (
+                            <circle
+                              cx={size / 2}
+                              cy={size / 2}
+                              r={radius}
+                              fill="none"
+                              stroke="var(--border)"
+                              strokeWidth={strokeWidth}
+                            />
+                          ) : (
+                            (() => {
+                              let accumulated = 0;
+                              return portfolioWithValues.map(item => {
+                                const percentage = item.value / totalPortfolioValue;
+                                const strokeLength = percentage * circumference;
+                                const strokeOffset = circumference - strokeLength + accumulated;
+                                accumulated -= strokeLength;
+                                
+                                if (percentage === 0) return null;
+
+                                return (
+                                  <circle
+                                    key={item.asset}
+                                    cx={size / 2}
+                                    cy={size / 2}
+                                    r={radius}
+                                    fill="none"
+                                    stroke={item.color}
+                                    strokeWidth={strokeWidth}
+                                    strokeDasharray={circumference}
+                                    strokeDashoffset={strokeOffset}
+                                    style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                                  />
+                                );
+                              });
+                            })()
+                          )}
+                        </svg>
+                        <div className="chart-center-text">
+                          <div className="chart-total-value">
+                            {formatVND(totalPortfolioValue)}
+                          </div>
+                          <div className="chart-total-label">Tổng tài sản</div>
+                        </div>
+                      </div>
+
+                      {/* Legend list */}
+                      <div className="chart-legend">
+                        {portfolioWithValues.map(item => (
+                          <div key={item.asset} className={`legend-item ${item.asset.toLowerCase()}`}>
+                            <span className="legend-label">
+                              {item.nameVi} 
+                              {item.asset_type === "Static" && <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}> (Tĩnh)</span>}
+                            </span>
+                            <span className="legend-value">
+                              {totalPortfolioValue > 0 
+                                ? `${((item.value / totalPortfolioValue) * 100).toFixed(1)}%` 
+                                : "0.0%"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Table of Assets */}
+                    <table>
                       <thead>
                         <tr>
-                          <th>Ngày</th>
                           <th>Tài sản</th>
-                          <th>Hành động</th>
-                          <th>Số lượng</th>
-                          <th>Giá</th>
-                          <th>Phí / Thuế</th>
-                          <th>Xóa</th>
+                          <th>Loại</th>
+                          <th className="num-col">Số lượng</th>
+                          <th className="num-col">Giá vốn TB</th>
+                          <th className="num-col">Tổng giá trị</th>
+                          <th className="num-col">Tỷ trọng</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {transactions.map((tx) => (
-                          <tr key={tx.id}>
-                            <td>{tx.date}</td>
-                            <td>{getAssetDisplayName(tx.asset)}</td>
+                        {portfolioWithValues.map(item => (
+                          <tr key={item.asset}>
                             <td>
-                              <span className={`tx-action-badge ${(tx.action_type === 'Buy' || tx.action_type === 'Deposit') ? 'buy' : 'sell'}`}>
-                                {tx.action_type === 'Deposit' ? 'Nạp tiền' :
-                                 tx.action_type === 'Withdraw' ? 'Rút tiền' :
-                                 tx.action_type === 'Buy' ? 'Mua vào' : 'Bán ra'}
+                              <span className="asset-badge">
+                                <span className={`asset-dot ${item.asset.toLowerCase()}`}></span>
+                                {item.nameVi}
                               </span>
                             </td>
                             <td>
-                              {tx.asset === 'Savings' ? formatVND(tx.quantity) : tx.quantity.toLocaleString('vi-VN')}
+                              <span style={{ fontSize: "0.8rem", color: item.asset_type === "Liquid" ? "var(--color-success)" : "var(--text-secondary)" }}>
+                                {item.asset_type === "Liquid" ? "Thanh khoản" : "Tĩnh/Khóa"}
+                              </span>
                             </td>
-                            <td>
-                              {tx.asset === 'Savings' ? '—' : formatVND(tx.price)}
+                            <td className="num-col">
+                              {item.asset === "Savings" 
+                                ? formatVND(item.quantity)
+                                : `${item.quantity.toLocaleString("vi-VN")} ${item.asset === "Gold" ? "lượng" : "CCQ"}`}
                             </td>
-                            <td>
-                              {tx.asset === 'Savings' ? '—' : (
-                                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                  {tx.fee ? `Phí: ${formatVND(tx.fee)}` : ""}
-                                  {tx.tax ? ` | Thuế: ${formatVND(tx.tax)}` : ""}
-                                </span>
-                              )}
-                            </td>
-                            <td>
-                              <button
-                                className="btn-danger btn-xs"
-                                onClick={() => handleDeleteTransaction(tx.id)}
-                              >
-                                Xóa
-                              </button>
+                            <td className="num-col">{item.asset === "Savings" ? "—" : formatVND(item.purchase_price)}</td>
+                            <td className="num-col">{formatVND(item.value)}</td>
+                            <td className="num-col">
+                              {totalPortfolioValue > 0 
+                                ? `${((item.value / totalPortfolioValue) * 100).toFixed(1)}%`
+                                : "0.0%"}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* RIGHT COLUMN: Rebalancer Adviser & AI Advisor */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              
-              {/* Risk Appetite & Optimal Portfolio */}
-              <div className="card">
-                <h2>Đề xuất phân bổ tài sản tối ưu</h2>
-                
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                  Kéo thanh trượt để điều chỉnh khẩu vị rủi ro. Ứng dụng sẽ tính toán lại tỷ trọng tối ưu hóa Sharpe Ratio (Markowitz QP) bằng động cơ solver Clarabel trong Rust.
-                </p>
+                  {/* Record Transaction Form */}
+                  <div className="card">
+                    <h2>Ghi nhận giao dịch tài sản</h2>
+                    <form onSubmit={handleAddTransaction}>
+                      <div className="form-grid">
+                        <div className="form-group">
+                          <label htmlFor="form-asset-select">Loại tài sản</label>
+                          <select 
+                            id="form-asset-select"
+                            value={formAssetSelect} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormAssetSelect(val);
+                              if (val === "Savings") {
+                                setFormAction("Deposit");
+                              } else {
+                                setFormAction("Buy");
+                              }
+                            }}
+                          >
+                            <option value="Savings">Tiết kiệm</option>
+                            <option value="Gold">Vàng SJC</option>
+                            <option value="VN30">ETF VN30</option>
+                            <option value="Diamond">ETF Diamond</option>
+                            <option value="Custom">Khác (Nhập mã tự chọn)...</option>
+                          </select>
+                        </div>
 
-                {/* Slider lambda */}
-                <div className="slider-container">
-                  <div className="slider-header">
-                    <span className="slider-title">Hệ số ngại rủi ro (Risk Aversion λ)</span>
-                    <span className="slider-value">{lambda.toFixed(1)}</span>
+                        {formAssetSelect === "Custom" && (
+                          <div className="form-group">
+                            <label htmlFor="form-asset-custom">Nhập mã tài sản tự chọn</label>
+                            <input 
+                              id="form-asset-custom"
+                              type="text" 
+                              required
+                              placeholder="Ví dụ: HPG, TCB, VCB, VCG..." 
+                              value={formAssetCustom}
+                              onChange={(e) => setFormAssetCustom(e.target.value.toUpperCase())}
+                            />
+                          </div>
+                        )}
+
+                        <div className="form-group">
+                          <label htmlFor="form-action-select">Hành động</label>
+                          <select 
+                            id="form-action-select"
+                            value={formAction} 
+                            onChange={(e) => setFormAction(e.target.value)}
+                          >
+                            {formAsset === "Savings" ? (
+                              <>
+                                <option value="Deposit">Gửi thêm (Deposit)</option>
+                                <option value="Withdraw">Rút tiền (Withdraw)</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="Buy">Mua vào (Buy)</option>
+                                <option value="Sell">Bán ra (Sell)</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="form-grid">
+                        <div className="form-group">
+                          <label htmlFor="form-quantity-input">
+                            {formAsset === "Savings" ? "Số tiền nạp/rút (VND)" : "Số lượng giao dịch (lượng/CCQ)"}
+                          </label>
+                          <input 
+                            id="form-quantity-input"
+                            type="number" 
+                            step="any"
+                            required
+                            placeholder={formAsset === "Savings" ? "Ví dụ: 10000000" : "Ví dụ: 2.5"} 
+                            value={formQty}
+                            onChange={(e) => setFormQty(e.target.value)}
+                          />
+                        </div>
+
+                        {formAsset !== "Savings" && (
+                          <div className="form-group">
+                            <label htmlFor="form-price-input">Giá thị trường lúc giao dịch (đ/đơn vị)</label>
+                            <input 
+                              id="form-price-input"
+                              type="number" 
+                              step="any"
+                              placeholder={latestPrices[formAsset] !== undefined ? `Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ` : "Nhập giá giao dịch..."}
+                              value={formPrice}
+                              onChange={(e) => setFormPrice(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {formAsset !== "Savings" && (
+                        <div className="form-grid" style={{ marginTop: "0.5rem" }}>
+                          <div className="form-group">
+                            <label htmlFor="form-fee-input">Phí giao dịch (VND) - mặc định 0.15%</label>
+                            <input 
+                              id="form-fee-input"
+                              type="number" 
+                              step="any"
+                              placeholder="Phí giao dịch..."
+                              value={formFee}
+                              onChange={(e) => setFormFee(e.target.value)}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label htmlFor="form-tax-input">Thuế bán (VND) - mặc định 0.1% (khi Bán)</label>
+                            <input 
+                              id="form-tax-input"
+                              type="number" 
+                              step="any"
+                              placeholder="Thuế giao dịch..."
+                              value={formTax}
+                              disabled={formAction !== "Sell"}
+                              onChange={(e) => setFormTax(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="form-group" style={{ marginBottom: "1rem", marginTop: "0.5rem" }}>
+                        <label htmlFor="form-date-input">Ngày giao dịch</label>
+                        <input 
+                          id="form-date-input"
+                          type="date" 
+                          required
+                          value={formDate}
+                          onChange={(e) => setFormDate(e.target.value)}
+                        />
+                      </div>
+
+                      <button type="submit" className="btn btn-primary btn-full">
+                        Lưu giao dịch & Cập nhật
+                      </button>
+                    </form>
                   </div>
-                  <input 
-                    type="range" 
-                    min="1.0" 
-                    max="10.0" 
-                    step="0.5" 
-                    value={lambda}
-                    onChange={(e) => setLambda(parseFloat(e.target.value))}
-                  />
-                  <div className="slider-labels">
-                    <span>Liều lĩnh (Lợi nhuận cao)</span>
-                    <span>An toàn (Lợi nhuận ổn định)</span>
+
+                  {/* Transaction History Card */}
+                  <div className="card transaction-history-card">
+                    <h2>Lịch sử giao dịch</h2>
+                    {transactions.length === 0 ? (
+                      <div className="empty-state">Chưa có giao dịch nào được ghi nhận.</div>
+                    ) : (
+                      <div className="transaction-list-container">
+                        <table className="transaction-table">
+                          <thead>
+                            <tr>
+                              <th>Ngày</th>
+                              <th>Tài sản</th>
+                              <th>Hành động</th>
+                              <th className="num-col">Số lượng</th>
+                              <th className="num-col">Giá</th>
+                              <th>Phí / Thuế</th>
+                              <th style={{ width: "60px", textAlign: "center" }}>Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {transactions.map((tx) => (
+                              <tr key={tx.id}>
+                                <td>{tx.date}</td>
+                                <td>{getAssetDisplayName(tx.asset)}</td>
+                                <td>
+                                  <span className={`tx-action-badge ${(tx.action_type === 'Buy' || tx.action_type === 'Deposit') ? 'buy' : 'sell'}`}>
+                                    {tx.action_type === 'Deposit' ? 'Nạp tiền' :
+                                     tx.action_type === 'Withdraw' ? 'Rút tiền' :
+                                     tx.action_type === 'Buy' ? 'Mua vào' : 'Bán ra'}
+                                  </span>
+                                </td>
+                                <td className="num-col">
+                                  {tx.asset === 'Savings' ? formatVND(tx.quantity) : tx.quantity.toLocaleString('vi-VN')}
+                                </td>
+                                <td className="num-col">
+                                  {tx.asset === 'Savings' ? '—' : formatVND(tx.price)}
+                                </td>
+                                <td>
+                                  {tx.asset === 'Savings' ? '—' : (
+                                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                      {tx.fee ? `Phí: ${formatVND(tx.fee)}` : ""}
+                                      {tx.tax ? ` | Thuế: ${formatVND(tx.tax)}` : ""}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign: "center" }}>
+                                  <button
+                                    className="btn-danger btn-xs"
+                                    onClick={() => handleDeleteTransaction(tx.id)}
+                                  >
+                                    Xóa
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
+
                 </div>
 
-                {/* Optimal Allocation Results */}
-                {optimalResult && (
-                  <div style={{ marginTop: "1rem" }}>
-                    <h3 style={{ fontSize: "0.95rem", fontWeight: "600", marginBottom: "0.75rem", color: "var(--text-secondary)" }}>
-                      Tỷ trọng tối ưu đề xuất (λ = {lambda.toFixed(1)})
-                    </h3>
-                    
-                    {portfolioWithValues.map((item) => {
-                      if (item.asset_type === "Static") return null;
-                      const optWeight = (optimalResult.weights[item.asset] || 0.0) * 100;
-                      return (
-                        <div key={item.asset} style={{ margin: "0.75rem 0" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
-                            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <span className="asset-dot" style={{ backgroundColor: item.color }}></span>
-                              <strong>{item.nameVi}</strong>
-                            </span>
-                            <span style={{ marginLeft: "auto", fontWeight: "700" }}>{optWeight.toFixed(1)}%</span>
-                          </div>
-                          {/* Progress Bar */}
-                          <div style={{ width: "100%", height: "8px", backgroundColor: "#232430", borderRadius: "4px", overflow: "hidden" }}>
-                            <div 
-                              style={{ 
-                                width: `${optWeight}%`, 
-                                height: "100%", 
-                                backgroundColor: item.color,
-                                transition: "width 0.4s ease"
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                {/* Right Split Column: Solver allocations, recommendations, AI advisor */}
+                <div className="content-column">
+                  
+                  {/* Risk Appetite & Optimal Portfolio */}
+                  <div className="card">
+                    <h2>Đề xuất phân bổ tài sản tối ưu</h2>
+                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+                      Điều chỉnh hệ số ngại rủi ro λ để solver Clarabel (Rust) tính toán lại tỷ trọng tối ưu hóa Sharpe Ratio.
+                    </p>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1.25rem", padding: "0.75rem", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Lợi nhuận kỳ vọng danh mục</div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-success)", marginTop: "2px" }}>
-                          {(optimalResult.expected_return * 100).toFixed(2)}% / năm
-                        </div>
+                    {/* Slider lambda */}
+                    <div className="slider-container">
+                      <div className="slider-header">
+                        <span className="slider-title">Hệ số ngại rủi ro (Risk Aversion λ)</span>
+                        <span className="slider-value">{lambda.toFixed(1)}</span>
                       </div>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Rủi ro dao động (Volatility)</div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-error)", marginTop: "2px" }}>
-                          {(optimalResult.volatility * 100).toFixed(2)}% / năm
-                        </div>
+                      <input 
+                        type="range" 
+                        min="1.0" 
+                        max="10.0" 
+                        step="0.5" 
+                        value={lambda}
+                        onChange={(e) => setLambda(parseFloat(e.target.value))}
+                      />
+                      <div className="slider-labels">
+                        <span>Liều lĩnh (Max Sharpe)</span>
+                        <span>An toàn (Min Volatility)</span>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Rebalancing Suggestion Card */}
-              <div className="card">
-                <h2>Đề xuất giao dịch tái cơ cấu</h2>
+                    {/* Optimal Allocation Results */}
+                    {optimalResult && (
+                      <div style={{ marginTop: "1rem" }}>
+                        <h3 style={{ fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", marginBottom: "0.75rem", color: "var(--text-secondary)" }}>
+                          Tỷ trọng tối ưu đề xuất (λ = {lambda.toFixed(1)})
+                        </h3>
+                        
+                        {portfolioWithValues.map((item) => {
+                          if (item.asset_type === "Static") return null;
+                          const optWeight = (optimalResult.weights[item.asset] || 0.0) * 100;
+                          return (
+                            <div key={item.asset} className="allocation-bar-wrapper">
+                              <div className="allocation-bar-info">
+                                <span className="asset-badge">
+                                  <span className={`asset-dot ${item.asset.toLowerCase()}`}></span>
+                                  <strong>{item.nameVi}</strong>
+                                </span>
+                                <span style={{ marginLeft: "auto", fontWeight: "700" }} className="num-col">{optWeight.toFixed(1)}%</span>
+                              </div>
+                              {/* Progress Bar */}
+                              <div className="allocation-bar-bg">
+                                <div 
+                                  className="allocation-bar-fill"
+                                  style={{ 
+                                    width: `${optWeight}%`, 
+                                    backgroundColor: item.color
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })}
 
-                {suggestions.length === 0 ? (
-                  <div className="empty-state">
-                    Danh mục hiện tại đã đạt trạng thái cân bằng tối ưu (độ lệch các tài sản đều dưới 5%). Không cần thực hiện giao dịch tái cơ cấu nào.
-                  </div>
-                ) : (
-                  <div className="suggestion-list">
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
-                      Cần thực hiện các giao dịch sau để giảm thiểu rủi ro và tối đa hóa Sharpe Ratio:
-                    </p>
-                    
-                    {suggestions.map((sug) => (
-                      <div key={sug.asset} className="suggestion-item">
-                        <div className="suggestion-details">
-                          <span className="suggestion-action">{sug.action}</span>
-                          <span className="suggestion-reason">
-                            Lệch {sug.deviation > 0 ? `+${sug.deviation}%` : `${sug.deviation}%`} so với tối ưu
-                          </span>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1.25rem", padding: "0.75rem", backgroundColor: "var(--bg-main)", border: "1px solid var(--border)" }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Lợi nhuận kỳ vọng</div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-success)", marginTop: "2px", fontFamily: "JetBrains Mono" }}>
+                              {(optimalResult.expected_return * 100).toFixed(2)}% / năm
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Rủi ro dao động</div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-error)", marginTop: "2px", fontFamily: "JetBrains Mono" }}>
+                              {(optimalResult.volatility * 100).toFixed(2)}% / năm
+                            </div>
+                          </div>
                         </div>
-                        <span className={`suggestion-badge ${sug.isBuy ? 'buy' : 'sell'}`}>
-                          {sug.isBuy ? "MUA VÀO" : "BÁN RA"}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rebalancing Suggestion Card */}
+                  <div className="card">
+                    <h2>Đề xuất giao dịch tái cơ cấu</h2>
+
+                    {suggestions.length === 0 ? (
+                      <div className="empty-state">
+                        Danh mục hiện tại đã đạt trạng thái cân bằng tối ưu (độ lệch dưới 5%). Không cần giao dịch tái cơ cấu nào.
+                      </div>
+                    ) : (
+                      <div className="suggestion-list">
+                        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                          Thực hiện các lệnh giao dịch sau để tối đa hóa Sharpe Ratio:
+                        </p>
+                        
+                        {suggestions.map((sug) => (
+                          <div key={sug.asset} className="suggestion-item">
+                            <div className="suggestion-details">
+                              <span className="suggestion-action">{sug.action}</span>
+                              <span className="suggestion-reason">
+                                Lệch {sug.deviation > 0 ? `+${sug.deviation}%` : `${sug.deviation}%`} so với tối ưu
+                              </span>
+                            </div>
+                            <span className={`suggestion-badge ${sug.isBuy ? 'buy' : 'sell'}`}>
+                              {sug.isBuy ? "MUA VÀO" : "BÁN RA"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Warnings */}
+                    {hasWithdrawalWarning && (
+                      <div className="alert alert-warning">
+                        <span className="alert-title">⚠️ Cảnh báo rút tiết kiệm trước hạn</span>
+                        <span className="alert-content">
+                          Đề xuất yêu cầu giảm số dư Tiết kiệm. Việc rút trước hạn tại Việt Nam sẽ chịu phạt lãi suất (bị đưa về mức không kỳ hạn ~0.1%/năm). Hãy cân nhắc chờ sổ tiết kiệm đáo hạn hoặc sử dụng các nguồn vốn nhàn rỗi khác.
                         </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                {/* Action Warnings */}
-                {hasWithdrawalWarning && (
-                  <div className="alert alert-warning">
-                    <span className="alert-title">⚠️ Cảnh báo rút tiết kiệm trước hạn</span>
-                    <span className="alert-content">
-                      Đề xuất trên yêu cầu giảm số dư Tiết kiệm. Việc rút trước hạn tại Việt Nam sẽ chịu phạt lãi suất (bị đưa về mức không kỳ hạn ~0.1%/năm). Hãy cân nhắc chờ sổ tiết kiệm đáo hạn hoặc sử dụng các nguồn vốn nhàn rỗi khác.
-                    </span>
+                    {hasGoldWarning && (
+                      <div className="alert alert-warning">
+                        <span className="alert-title">⚠️ Cảnh báo thanh khoản SJC Gold</span>
+                        <span className="alert-content">
+                          Vàng SJC tại Việt Nam chịu sự quản lý chặt chẽ. Chênh lệch mua-bán lớn (2M - 4M VND) có thể làm giảm hiệu quả tái cân bằng ngắn hạn. Đề xuất này thích hợp cho chiến lược tích lũy dài hạn.
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {hasGoldWarning && (
-                  <div className="alert alert-warning">
-                    <span className="alert-title">⚠️ Cảnh báo thanh khoản SJC Gold</span>
-                    <span className="alert-content">
-                      Vàng SJC tại Việt Nam chịu sự quản lý chặt chẽ. Chênh lệch mua-bán lớn (thường 2M - 4M VND/lượng) có thể làm giảm hiệu quả tái cân bằng ngắn hạn. Đề xuất này thích hợp cho chiến lược tích lũy dài hạn.
-                    </span>
-                  </div>
-                )}
-              </div>
+                  {/* AI Strategic Advisor Tab */}
+                  <div className="card">
+                    <h2>🤖 Cố vấn Chiến lược AI (Gemini Advisor)</h2>
+                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+                      Tích hợp danh mục hiện tại, các chỉ số kinh tế vĩ mô chính sách ở Việt Nam và kết quả solver để phân tích chiến lược tài sản toàn diện.
+                    </p>
 
-              {/* AI Strategic Advisor Tab */}
-              <div className="card">
-                <h2>🤖 Cố vấn Chiến lược AI (Gemini Advisor)</h2>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                  AI sẽ tích hợp danh mục hiện tại của bạn, các chỉ số kinh tế vĩ mô chính sách ở Việt Nam và kết quả solver để đưa ra bài phân tích chiến lược tài sản toàn diện.
-                </p>
+                    {advisorLoading ? (
+                      <div style={{ textAlign: "center", padding: "1.5rem" }}>
+                        <span className="spinner" style={{ width: "24px", height: "24px" }}></span>
+                        <p style={{ marginTop: "0.5rem" }}>Gemini đang sinh báo cáo phân tích...</p>
+                      </div>
+                    ) : advisorText ? (
+                      <div className="advisor-report-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        <div className="advisor-report-window">{advisorText}</div>
+                        <button className="btn btn-secondary btn-small" style={{ width: "auto", alignSelf: "flex-start" }} onClick={handleGenerateAdvice}>🔄 Tạo lại tư vấn</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-primary btn-full" onClick={handleGenerateAdvice}>
+                        💡 Nhận Cố vấn Chiến lược AI
+                      </button>
+                    )}
+                  </div>
 
-                {advisorLoading ? (
-                  <div style={{ textAlign: "center", padding: "1.5rem" }}>
-                    <span className="spinner" style={{ width: "24px", height: "24px" }}></span>
-                    <p style={{ marginTop: "0.5rem" }}>Gemini đang phân tích vĩ mô và sinh báo cáo...</p>
-                  </div>
-                ) : advisorText ? (
-                  <div className="advisor-report-container" style={{ maxHeight: "400px", overflowY: "auto", padding: "1rem", backgroundColor: "rgba(255,255,255,0.01)", borderRadius: "8px", border: "1px solid var(--border-color)", fontSize: "0.9rem", lineHeight: "1.6" }}>
-                    <div style={{ whiteSpace: "pre-wrap" }}>{advisorText}</div>
-                    <button className="btn-secondary btn-small" style={{ marginTop: "1rem" }} onClick={handleGenerateAdvice}>🔄 Tạo lại tư vấn</button>
-                  </div>
-                ) : (
-                  <button className="btn-primary btn-full" onClick={handleGenerateAdvice}>
-                    💡 Nhận Cố vấn Chiến lược AI
-                  </button>
-                )}
+                </div>
+
               </div>
 
             </div>

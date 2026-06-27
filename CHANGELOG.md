@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-06-26
+## [0.2.0] - 2026-06-27
 
 ### Added
 - Hỗ trợ nhập và lưu trữ mã tài sản tùy chỉnh bất kỳ ở Việt Nam thông qua select box "Khác" trong biểu mẫu ghi nhận giao dịch.
@@ -16,8 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tự động băm tên tài sản tùy chỉnh sang dải màu sắc HSL hài hòa hiển thị trên biểu đồ phân bổ hình tròn.
 
 ### Changed
+- Nâng cấp giao diện sang phong cách Thiết kế Swiss Editorial với font chữ Outfit, bảng màu sắc tối và các phần tử thiết kế góc cạnh tối giản.
 - Cải thiện thuộc tính `id` và `htmlFor` trong toàn bộ form ghi nhận giao dịch để tăng mức độ truy cập (Accessibility).
 - Nâng cấp di trú cơ sở dữ liệu SQLite an toàn trên startup để thêm các trường phí, thuế, giá vốn trung bình di động và lãi/lỗ thực tế.
+- Bổ sung bộ test Vitest tăng tỷ lệ phủ mã nguồn (code coverage) từ 56% lên ~89% cho các tính năng Cài đặt API, Sao lưu, Tự động tính phí/thuế, Xác thực biểu mẫu và Xóa giao dịch.
 
 ### Fixed
 - Bảo vệ an toàn trường hiển thị giá gợi ý (placeholder) khi chọn tài sản "Khác" để tránh crash React màn hình trắng khi giá trị là chuỗi rỗng hoặc chưa tải kịp.

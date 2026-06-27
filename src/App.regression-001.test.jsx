@@ -197,3 +197,111 @@ test("should show correct warnings and auto calculate fees/taxes", async () => {
   // tax = 2 * 83000000 * 0.001 = 166000
   expect(taxInput.value).toBe("166000");
 });
+
+test("should show error when quantity is <= 0 or invalid", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "VN30" } });
+
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "-5" } });
+
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "21000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const errorMsg = await screen.findByText("Số lượng giao dịch phải lớn hơn 0");
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should show error when price is <= 0 or invalid for non-savings assets", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "VN30" } });
+
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "10" } });
+
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "-2000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const errorMsg = await screen.findByText("Giá giao dịch phải lớn hơn 0");
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should default price to 1.0 for Savings asset", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "Savings" } });
+
+  const qtyInput = await screen.findByLabelText("Số tiền nạp/rút (VND)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "5000000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const successMsg = await screen.findByText(/Đã ghi nhận giao dịch Tiết kiệm thành công!/i);
+  expect(successMsg).toBeInTheDocument();
+});
+
+test("should show error on invalid JSON backup restore", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const backupBtn = screen.getByRole("button", { name: /Sao lưu \/ Khôi phục/i });
+  fireEvent.click(backupBtn);
+
+  const importTextarea = await screen.findByLabelText("Dán dữ liệu sao lưu để khôi phục", { exact: false });
+  fireEvent.change(importTextarea, { target: { value: "invalid-json-content" } });
+
+  const importBtn = screen.getByRole("button", { name: /Khôi phục từ bản dán/i });
+  fireEvent.click(importBtn);
+
+  const errorMsg = await screen.findByText(/Lỗi phân tích cú pháp JSON hoặc định dạng bản sao lưu không hợp lệ/i);
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should allow deleting a transaction", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  const originalConfirm = window.confirm;
+  window.confirm = () => true;
+
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const deleteButtons = await screen.findAllByRole("button", { name: /Xóa/i });
+  expect(deleteButtons.length).toBeGreaterThan(0);
+
+  fireEvent.click(deleteButtons[0]);
+
+  const successMsg = await screen.findByText(/Đã xóa giao dịch thành công!/i);
+  expect(successMsg).toBeInTheDocument();
+
+  window.confirm = originalConfirm;
+});
+

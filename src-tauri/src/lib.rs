@@ -448,6 +448,7 @@ async fn parse_screenshot(
 #[tauri::command]
 async fn generate_wealth_advice(
     state: tauri::State<'_, AppState>,
+    lang: Option<String>,
 ) -> Result<String, AppError> {
     let (api_key, proxy_url, state_data, indicators) = {
         let conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
@@ -488,43 +489,84 @@ async fn generate_wealth_advice(
         None
     };
 
+    let target_lang = lang.unwrap_or_else(|| "en".to_string());
     let mut prompt = String::new();
-    prompt.push_str("Bạn là một Cố vấn Tài chính AI chuyên nghiệp tại Việt Nam. ");
-    prompt.push_str("Hãy phân tích danh mục tài sản hiện tại của người dùng, kết hợp với các chỉ số vĩ mô hiện tại và gợi ý phân bổ tối ưu từ thuật toán tối ưu hóa (Clarabel Solver), để đưa ra các đề xuất chiến lược tài chính chi tiết, rõ ràng bằng tiếng Việt.\n\n");
-    
-    prompt.push_str("### 1. Danh mục tài sản hiện tại của người dùng:\n");
-    for item in &state_data.portfolio {
-        prompt.push_str(&format!(
-            "- Tên tài sản: {}, Số lượng: {}, Loại: {}, Giá vốn: {}, Lãi/lỗ thực tế tích lũy: {}\n",
-            item.asset, item.quantity, item.asset_type, item.purchase_price, item.realized_pnl
-        ));
-    }
-    
-    prompt.push_str("\n### 2. Các chỉ số kinh tế vĩ mô hiện tại:\n");
-    for ind in &indicators {
-        prompt.push_str(&format!(
-            "- {} ({}): {} (Cập nhật: {})\n",
-            ind.description.as_deref().unwrap_or("Chỉ số"), ind.key, ind.value, ind.updated_at
-        ));
-    }
-    
-    prompt.push_str("\n### 3. Tỷ trọng gợi ý tối ưu từ thuật toán Clarabel Solver (chỉ áp dụng cho tài sản Liquid):\n");
-    if let Some(res) = rebalance_weights {
-        for (asset, weight) in &res.weights {
-            prompt.push_str(&format!("- {}: {:.2}%\n", asset, weight * 100.0));
+
+    if target_lang == "vi" {
+        prompt.push_str("Bạn là một Cố vấn Tài chính AI chuyên nghiệp tại Việt Nam. ");
+        prompt.push_str("Hãy phân tích danh mục tài sản hiện tại của người dùng, kết hợp với các chỉ số vĩ mô hiện tại và gợi ý phân bổ tối ưu từ thuật toán tối ưu hóa (Clarabel Solver), để đưa ra các đề xuất chiến lược tài chính chi tiết, rõ ràng bằng tiếng Việt.\n\n");
+        
+        prompt.push_str("### 1. Danh mục tài sản hiện tại của người dùng:\n");
+        for item in &state_data.portfolio {
+            prompt.push_str(&format!(
+                "- Tên tài sản: {}, Số lượng: {}, Loại: {}, Giá vốn: {}, Lãi/lỗ thực tế tích lũy: {}\n",
+                item.asset, item.quantity, item.asset_type, item.purchase_price, item.realized_pnl
+            ));
         }
-        prompt.push_str(&format!("- Kỳ vọng lợi nhuận danh mục tối ưu: {:.2}%\n", res.expected_return * 100.0));
-        prompt.push_str(&format!("- Độ biến động danh mục tối ưu: {:.2}%\n", res.volatility * 100.0));
+        
+        prompt.push_str("\n### 2. Các chỉ số kinh tế vĩ mô hiện tại:\n");
+        for ind in &indicators {
+            prompt.push_str(&format!(
+                "- {} ({}): {} (Cập nhật: {})\n",
+                ind.description.as_deref().unwrap_or("Chỉ số"), ind.key, ind.value, ind.updated_at
+            ));
+        }
+        
+        prompt.push_str("\n### 3. Tỷ trọng gợi ý tối ưu từ thuật toán Clarabel Solver (chỉ áp dụng cho tài sản Liquid):\n");
+        if let Some(res) = rebalance_weights {
+            for (asset, weight) in &res.weights {
+                prompt.push_str(&format!("- {}: {:.2}%\n", asset, weight * 100.0));
+            }
+            prompt.push_str(&format!("- Kỳ vọng lợi nhuận danh mục tối ưu: {:.2}%\n", res.expected_return * 100.0));
+            prompt.push_str(&format!("- Độ biến động danh mục tối ưu: {:.2}%\n", res.volatility * 100.0));
+        } else {
+            prompt.push_str("- Không có gợi ý phân bổ (dữ liệu lịch sử giá chưa đủ hoặc danh mục rỗng).\n");
+        }
+        
+        prompt.push_str("\n### Yêu cầu báo cáo cố vấn:\n");
+        prompt.push_str("1. Đánh giá cấu trúc danh mục tài sản hiện tại (tính thanh khoản, rủi ro, phân bổ nhóm tài sản Liquid/Static).\n");
+        prompt.push_str("2. Bình luận tác động của các chỉ số vĩ mô (lãi suất, lạm phát, tỷ giá, VN-Index) tới danh mục đầu tư.\n");
+        prompt.push_str("3. Giải thích và nhận định về tỷ trọng gợi ý từ Clarabel Solver. Làm thế nào người dùng có thể thực hiện tái cơ cấu danh mục để tiến gần hơn đến tỷ trọng này một cách an toàn.\n");
+        prompt.push_str("4. Đưa ra 3-4 khuyến nghị hành động cụ thể để gia tăng tài sản bền vững.\n\n");
+        prompt.push_str("Báo cáo cần trình bày chuyên nghiệp, sử dụng định dạng Markdown đẹp mắt, có tiêu đề rõ ràng, không dùng các ký tự lạ hoặc thông tin giả định không có căn cứ.");
     } else {
-        prompt.push_str("- Không có gợi ý phân bổ (dữ liệu lịch sử giá chưa đủ hoặc danh mục rỗng).\n");
+        prompt.push_str("You are a professional AI Financial Advisor in Vietnam. ");
+        prompt.push_str("Please analyze the user's current asset portfolio, combined with the current macro indicators and the optimal allocation suggestions from the optimization algorithm (Clarabel Solver), to provide detailed, clear financial strategy recommendations in English.\n\n");
+        
+        prompt.push_str("### 1. User's current asset portfolio:\n");
+        for item in &state_data.portfolio {
+            prompt.push_str(&format!(
+                "- Asset Name: {}, Quantity: {}, Type: {}, Cost Basis: {}, Accumulated Realized P&L: {}\n",
+                item.asset, item.quantity, item.asset_type, item.purchase_price, item.realized_pnl
+            ));
+        }
+        
+        prompt.push_str("\n### 2. Current macroeconomic indicators:\n");
+        for ind in &indicators {
+            prompt.push_str(&format!(
+                "- {} ({}): {} (Updated: {})\n",
+                ind.description.as_deref().unwrap_or("Indicator"), ind.key, ind.value, ind.updated_at
+            ));
+        }
+        
+        prompt.push_str("\n### 3. Proposed optimal weights from Clarabel Solver (applies to Liquid assets only):\n");
+        if let Some(res) = rebalance_weights {
+            for (asset, weight) in &res.weights {
+                prompt.push_str(&format!("- {}: {:.2}%\n", asset, weight * 100.0));
+            }
+            prompt.push_str(&format!("- Expected return of optimal portfolio: {:.2}%\n", res.expected_return * 100.0));
+            prompt.push_str(&format!("- Volatility of optimal portfolio: {:.2}%\n", res.volatility * 100.0));
+        } else {
+            prompt.push_str("- No allocation suggestion (insufficient price history or empty portfolio).\n");
+        }
+        
+        prompt.push_str("\n### Advisor report requirements:\n");
+        prompt.push_str("1. Evaluate the current portfolio structure (liquidity, risk, allocation between Liquid/Static assets).\n");
+        prompt.push_str("2. Comment on the impact of macro indicators (interest rates, inflation, exchange rate, VN-Index) on the portfolio.\n");
+        prompt.push_str("3. Explain and comment on the suggested weights from the Clarabel Solver. How the user can safely execute rebalancing to move closer to these target weights.\n");
+        prompt.push_str("4. Provide 3-4 specific actionable recommendations to grow wealth sustainably.\n\n");
+        prompt.push_str("The report must be presented professionally using clean Markdown formatting, with clear headings, and must not contain any strange characters or unfounded assumptions.");
     }
-    
-    prompt.push_str("\n### Yêu cầu báo cáo cố vấn:\n");
-    prompt.push_str("1. Đánh giá cấu trúc danh mục tài sản hiện tại (tính thanh khoản, rủi ro, phân bổ nhóm tài sản Liquid/Static).\n");
-    prompt.push_str("2. Bình luận tác động của các chỉ số vĩ mô (lãi suất, lạm phát, tỷ giá, VN-Index) tới danh mục đầu tư.\n");
-    prompt.push_str("3. Giải thích và nhận định về tỷ trọng gợi ý từ Clarabel Solver. Làm thế nào người dùng có thể thực hiện tái cơ cấu danh mục để tiến gần hơn đến tỷ trọng này một cách an toàn.\n");
-    prompt.push_str("4. Đưa ra 3-4 khuyến nghị hành động cụ thể để gia tăng tài sản bền vững.\n\n");
-    prompt.push_str("Báo cáo cần trình bày chuyên nghiệp, sử dụng định dạng Markdown đẹp mắt, có tiêu đề rõ ràng, không dùng các ký tự lạ hoặc thông tin giả định không có căn cứ.");
 
     let mut builder = reqwest::Client::builder();
     if let Some(ref proxy_str) = proxy_url {

@@ -1,43 +1,43 @@
 # Wealth Copilot
 
-Cố vấn phân bổ và tái cơ cấu danh mục tài sản cá nhân thông minh tại Việt Nam. Ứng dụng local-first, bảo mật dữ liệu tuyệt đối của bạn, được xây dựng trên nền tảng **Tauri + React + Rust**.
+Smart personal asset allocation and rebalancing advisor tailored for Vietnam. A local-first, highly secure application built on **Tauri + React + Rust**.
 
-## 🎨 Tính năng chính
+## 🎨 Key Features
 
-- **Tối ưu hóa danh mục tài sản**: Sử dụng thư viện tối ưu hóa lồi **Clarabel** của Rust để tính toán tỷ trọng danh mục đầu tư tối ưu dựa trên mô hình Markowitz (Risk Aversion $\lambda$).
-- **Hỗ trợ các lớp tài sản Việt Nam & Tùy chỉnh**:
-  - Tiết kiệm ngân hàng, Vàng miếng SJC, Quỹ chỉ số ETF VN30 (E1VFVN30), ETF Diamond (FUEVFVND).
-  - Cho phép nhập và lưu trữ mã tài sản tùy chỉnh bất kỳ ("Khác"), tự động băm tên tài sản sang dải màu sắc HSL hài hòa hiển thị trên biểu đồ tròn.
-- **Trợ lý Cố vấn AI & Bóc tách dữ liệu**:
-  - Nhận phân tích, nhận định cấu trúc danh mục và hành động chi tiết bằng tiếng Việt thông qua mô hình Gemini AI Advisor tích hợp, kết hợp danh mục thực tế và các chỉ số kinh tế vĩ mô.
-  - Tự động bóc tách danh mục từ ảnh chụp màn hình sàn giao dịch (như TCBS) bằng Gemini Vision, đi kèm bảng xem trước trước khi ghi nhận vào SQLite.
-  - Thiết lập API Key Gemini cá nhân và Custom Endpoint/Proxy cục bộ để tránh bị chặn kết nối tại Việt Nam.
-- **Đồng bộ giá thị trường tự động**: Đồng bộ hóa giá vàng SJC, ETF và lãi suất tiết kiệm trực tiếp từ GitHub Releases của kho lưu trữ.
-- **Bảo mật và Local-First**: Toàn bộ dữ liệu giao dịch và danh mục của bạn được lưu trữ an toàn trong cơ sở dữ liệu SQLite cục bộ trên máy tính.
-- **Sao lưu & Phục hồi dữ liệu**: Dễ dàng xuất bản sao lưu dưới dạng chuỗi JSON mã hóa để khôi phục khi cần thiết.
+- **Portfolio Optimization**: Utilizes Rust's **Clarabel** convex optimization solver to compute optimal asset weights using the Markowitz model based on your Risk Aversion ($\lambda$).
+- **Support for Vietnam & Custom Asset Classes**:
+  - Bank Savings, SJC Gold bar, VN30 ETF (E1VFVN30), Diamond ETF (FUEVFVND).
+  - Add and manage any custom asset ticker under "Custom", with dynamic HSL hashing for consistent color coding on the donut chart.
+- **AI Advisor & Document Parser**:
+  - Get deep insights, portfolio structural analysis, and step-by-step actions in your selected language via the integrated Gemini AI Advisor.
+  - Automatically parse screenshots of brokerage platforms (such as TCBS) using Gemini Vision, with a preview/edit draft table before saving to SQLite.
+  - Save your personal Gemini API Key and local Reverse Proxy/Endpoint URL in settings to prevent connectivity issues.
+- **Automatic Market Sync**: Sync the latest SJC gold prices, ETF values, and savings interest rates directly from the repository's GitHub Releases.
+- **Secure & Local-First**: All transaction logs and portfolios are stored securely in a local SQLite database on your machine.
+- **Backup & Restore**: Easily export your data as a JSON string to backup or restore your portfolio across devices.
 
-## 🚀 Hướng dẫn phát triển
+## 🚀 Development Guide
 
-Xem thêm chi tiết tại [CLAUDE.md](file:///Users/hoojinguyen/Documents/antigravity/eager-bell/CLAUDE.md).
+See [CLAUDE.md](CLAUDE.md) for more details.
 
-### Yêu cầu hệ thống
-- **Node.js** (Phiên bản 20 trở lên)
-- **Rust & Cargo** (Để biên dịch backend Tauri)
+### System Requirements
+- **Node.js** (Version 20 or higher)
+- **Rust & Cargo** (For compiling Tauri backend)
 
-### Khởi chạy môi trường phát triển
+### Start Development Server
 ```bash
-# Cài đặt các phụ thuộc
+# Install dependencies
 npm install
 
-# Chạy bản xem trước trên trình duyệt web
+# Run frontend in browser preview mode
 npm run dev
 
-# Chạy ứng dụng Desktop Tauri ở chế độ phát triển
+# Run desktop Tauri app in development mode
 npm run tauri dev
 ```
 
-### Kiểm thử
+### Testing
 ```bash
-# Chạy các bài kiểm thử tự động
+# Run unit and regression tests
 npx vitest run
 ```

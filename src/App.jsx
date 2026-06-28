@@ -2,11 +2,317 @@ import { useState, useEffect, useMemo } from "react";
 import { invoke } from "./tauri-client";
 import "./App.css";
 
+const TRANSLATIONS = {
+  en: {
+    title: "Wealth Copilot",
+    subtitle: "Local-first Smart Asset Allocation & Rebalancing Advisor (Vietnam)",
+    lightMode: "☀️ Light Mode",
+    darkMode: "🌙 Dark Mode",
+    apiSettings: "⚙️ API Settings",
+    backupRestore: "Backup / Restore",
+    syncMarketPrices: "Sync Market Prices",
+    syncing: "Syncing...",
+    syncWarningTitle: "⚠️ Market price data is not up to date",
+    syncWarningContent: "Last market price sync was {date} ({days} days ago). Please click 'Sync Market Prices' to use the latest data.",
+    systemError: "System Error",
+    saveSettingsSuccess: "API Key & Proxy settings saved successfully!",
+    saveSettingsError: "Error saving settings: {err}",
+    syncSuccess: "Market price data synced successfully from GitHub!",
+    backupExportSuccess: "Backup exported and copied to clipboard successfully!",
+    backupImportSuccess: "Data restored from backup successfully!",
+    deleteTxSuccess: "Transaction deleted successfully!",
+    addTxSuccess: "Recorded transaction {asset} successfully!",
+    qtyError: "Transaction quantity must be greater than 0",
+    priceError: "Transaction price must be greater than 0",
+    draftInvalidRows: "Draft table contains invalid rows. Please check ticker, quantity, and cost basis.",
+    screenshotParsed: "Portfolio screenshot parsed! Please verify and edit in the Draft Panel below.",
+    screenshotError: "Screenshot parsing error: {err}. Please configure Gemini API Key and ensure internet connectivity.",
+    imageReadError: "Error reading image file",
+    draftSavedSuccess: "Successfully imported all items from draft table into SQLite!",
+    portfolioSavedError: "Error saving portfolio: {err}",
+    aiAdvisorError: "Error generating AI report: {err}",
+    pasteBackupPrompt: "Please paste JSON backup data to restore",
+    deleteTxConfirm: "Are you sure you want to delete this transaction? Portfolio weights will be recalculated.",
+    apiConfigTitle: "⚙️ Gemini API & Network Configuration",
+    apiKeyLabel: "Gemini API Key (stored securely locally)",
+    apiKeyPlaceholder: "Paste API Key from Google AI Studio...",
+    proxyUrlLabel: "Custom Proxy / Endpoint (Optional for Vietnam)",
+    proxyUrlPlaceholder: "E.g., http://localhost:7890 or Reverse Proxy Endpoint",
+    saveConfigBtn: "Save Configuration",
+    cancelBtn: "Cancel",
+    backupTitle: "Data Backup Management",
+    currentBackupLabel: "Current Backup Data (JSON)",
+    exportBackupPlaceholder: "Click 'Export Backup' to generate backup data...",
+    exportCopyBtn: "Export Backup & Copy",
+    importBackupLabel: "Paste backup data to restore",
+    importBackupPlaceholder: "Paste JSON backup content here...",
+    restoreBtn: "Restore from Paste",
+    welcomeTitle: "👋 Welcome to Wealth Copilot!",
+    welcomeSubtitle: "Your local-first application for multi-asset management in Vietnam.",
+    onboardingStep1: "Configure API Key: Click '⚙️ API Settings' at the top to save your personal Gemini API key.",
+    onboardingStep2: "Auto-import Portfolio: Drag and drop or upload brokerage screenshots (like TCBS) to parse automatically.",
+    onboardingStep3: "Manual Import & Fallback: Add any asset tickers manually, and adjust brokerage fees & taxes.",
+    screenshotParserTitle: "📸 Screenshot Parser (OCR)",
+    screenshotParserSubtitle: "Upload portfolio screenshot from TCBS or other brokers for automated ingestion.",
+    screenshotZoneParsing: "Gemini Vision is parsing...",
+    screenshotZoneIdle: "Drag & drop image here or click to upload",
+    draftTitle: "📋 Draft Table",
+    addRowBtn: "+ Add Row",
+    colAsset: "Ticker",
+    colQty: "Qty",
+    colCostBasis: "Cost Basis",
+    colActions: "Actions",
+    deleteBtn: "Delete",
+    saveBtn: "Save",
+    totalValueLabel: "Total Portfolio Value",
+    localFirstValuation: "Local-first Valuation",
+    expectedReturnLabel: "Expected Return",
+    perYear: "/ year",
+    volatilityLabel: "Volatility",
+    sharpeRatioLabel: "Sharpe Ratio",
+    riskAdjustedReturnLabel: "Risk-adjusted Return",
+    totalAssetsChartCenter: "Total Assets",
+    legendStatic: "(Static)",
+    liquidLabel: "Liquid",
+    staticLabel: "Static/Locked",
+    portfolioOverviewTitle: "Current Portfolio Overview",
+    tableHeaderAsset: "Asset",
+    tableHeaderType: "Type",
+    tableHeaderQty: "Quantity",
+    tableHeaderCostBasis: "Avg Cost Basis",
+    tableHeaderTotalValue: "Total Value",
+    tableHeaderWeight: "Weight",
+    unitTael: "taels",
+    unitShare: "shares",
+    recordTxTitle: "Record Asset Transaction",
+    formAssetClassLabel: "Asset Class",
+    optionSavings: "Savings",
+    optionGold: "SJC Gold",
+    optionVN30: "VN30 ETF",
+    optionDiamond: "Diamond ETF",
+    optionCustom: "Other (Custom Ticker)...",
+    formCustomTickerLabel: "Enter custom asset ticker",
+    formCustomTickerPlaceholder: "E.g., HPG, TCB, VCB, VCG...",
+    formActionLabel: "Action",
+    optionDeposit: "Deposit",
+    optionWithdraw: "Withdraw",
+    optionBuy: "Buy",
+    optionSell: "Sell",
+    amountDepositWithdrawLabel: "Amount to deposit/withdraw (VND)",
+    txQtyLabel: "Transaction quantity (taels/shares)",
+    txPriceLabel: "Transaction price per unit (VND)",
+    currentPriceLabel: "Current price: {price}đ",
+    enterTxPricePlaceholder: "Enter transaction price...",
+    feeLabel: "Transaction Fee (VND) - default 0.15%",
+    taxLabel: "Selling Tax (VND) - default 0.1% (on Sell)",
+    txDateLabel: "Transaction Date",
+    saveTxBtn: "Save Transaction & Recalculate",
+    historyTitle: "Transaction History",
+    historyEmptyState: "No transactions recorded yet.",
+    historyHeaderDate: "Date",
+    historyHeaderAsset: "Asset",
+    historyHeaderAction: "Action",
+    historyHeaderQty: "Qty",
+    historyHeaderPrice: "Price",
+    historyHeaderFeeTax: "Fee / Tax",
+    historyHeaderActions: "Action",
+    historyFeeLabel: "Fee",
+    historyTaxLabel: "Tax",
+    historyActionDeposit: "Deposit",
+    historyActionWithdraw: "Withdraw",
+    historyActionBuy: "Buy",
+    historyActionSell: "Sell",
+    solverTitle: "Optimal Asset Allocation Suggestion",
+    solverSubtitle: "Adjust risk aversion coefficient λ to recalculate optimal Sharpe ratio weights using Clarabel (Rust).",
+    riskAversionLabel: "Risk Aversion Coefficient (λ)",
+    riskAversionAggressive: "Aggressive (Max Sharpe)",
+    riskAversionConservative: "Conservative (Min Volatility)",
+    solverOptimalWeightsHeader: "Proposed Optimal Weights (λ = {lambda})",
+    solverVolLabel: "Annual Volatility",
+    solverRetLabel: "Expected return of optimal portfolio",
+    rebalanceTitle: "Rebalancing Trade Suggestions",
+    rebalanceEmptyState: "Portfolio is in optimal balance (deviations < 5%). No trades required.",
+    rebalanceSubtitle: "Execute the following trades to optimize your Sharpe ratio:",
+    deviationLabel: "Deviated {dev}% from target weight",
+    badgeBuy: "BUY",
+    badgeSell: "SELL",
+    savingsWithdrawalWarningTitle: "⚠️ Pre-mature Savings Withdrawal Warning",
+    savingsWithdrawalWarningContent: "The proposal suggests reducing Savings balance. In Vietnam, pre-mature bank withdrawals usually lose accrued interest (reverted to ~0.1% demand deposit rate). Consider waiting for maturity or using idle cash instead.",
+    goldLiquidityWarningTitle: "⚠️ SJC Gold Liquidity Warning",
+    goldLiquidityWarningContent: "SJC gold in Vietnam is heavily regulated. Large bid-ask spreads (2M - 4M VND) may reduce rebalancing efficiency in the short term. This suggestion is best suited for long-term accumulation.",
+    aiAdvisorTitle: "🤖 AI Strategic Advisor (Gemini Advisor)",
+    aiAdvisorSubtitle: "Combines your portfolio, macroeconomic indicators, and optimizer results to deliver a comprehensive financial strategy report.",
+    aiAdvisorLoading: "Gemini is generating analysis report...",
+    aiAdvisorRegenerateBtn: "🔄 Regenerate Advice",
+    aiAdvisorGetBtn: "💡 Get AI Strategic Advice",
+    loadingSqlite: "Loading SQLite database...",
+    actionDepositSavings: "Deposit {val} to Savings",
+    actionWithdrawSavings: "Withdraw {val} from Savings",
+    actionBuyAsset: "Buy {qty} {unit} of {asset} (~{val})",
+    actionSellAsset: "Sell {qty} {unit} of {asset} (~{val})",
+  },
+  vi: {
+    title: "Wealth Copilot",
+    subtitle: "Cố Vấn Tài Sản & Tái Cơ Cấu Thông Minh local-first (Việt Nam)",
+    lightMode: "☀️ Light Mode",
+    darkMode: "🌙 Dark Mode",
+    apiSettings: "⚙️ Cài đặt API",
+    backupRestore: "Sao lưu / Khôi phục",
+    syncMarketPrices: "Đồng bộ giá thị trường",
+    syncing: "Đang đồng bộ...",
+    syncWarningTitle: "⚠️ Dữ liệu giá thị trường chưa đồng bộ mới nhất",
+    syncWarningContent: "Lần đồng bộ giá thị trường gần nhất là {date} (đã quá {days} ngày). Hãy bấm 'Đồng bộ giá thị trường' để solver sử dụng dữ liệu mới nhất.",
+    systemError: "Lỗi hệ thống",
+    saveSettingsSuccess: "Lưu cài đặt API Key & Proxy thành công!",
+    saveSettingsError: "Lỗi lưu cài đặt: {err}",
+    syncSuccess: "Đồng bộ dữ liệu giá từ GitHub thành công!",
+    backupExportSuccess: "Đã xuất bản sao lưu và tự động sao chép vào clipboard!",
+    backupImportSuccess: "Khôi phục dữ liệu từ bản sao lưu thành công!",
+    deleteTxSuccess: "Đã xóa giao dịch thành công!",
+    addTxSuccess: "Đã ghi nhận giao dịch {asset} thành công!",
+    qtyError: "Số lượng giao dịch phải lớn hơn 0",
+    priceError: "Giá giao dịch phải lớn hơn 0",
+    draftInvalidRows: "Bảng nháp có dòng không hợp lệ. Vui lòng kiểm tra lại mã, số lượng và giá vốn.",
+    screenshotParsed: "Đã phân tích ảnh chụp danh mục! Vui lòng đối chiếu và chỉnh sửa trong Bảng Duyệt Nháp bên dưới.",
+    screenshotError: "Lỗi bóc tách ảnh: {err}. Hãy cấu hình Gemini API Key và đảm bảo kết nối mạng không bị chặn.",
+    imageReadError: "Lỗi đọc file ảnh",
+    draftSavedSuccess: "Đã thêm toàn bộ danh mục từ bảng duyệt nháp vào SQLite thành công!",
+    portfolioSavedError: "Lỗi lưu danh mục: {err}",
+    aiAdvisorError: "Lỗi sinh báo cáo AI: {err}",
+    pasteBackupPrompt: "Vui lòng dán dữ liệu sao lưu JSON cần khôi phục",
+    deleteTxConfirm: "Bạn có chắc chắn muốn xóa giao dịch này không? Tỷ trọng danh mục sẽ được tính toán lại.",
+    apiConfigTitle: "⚙️ Cấu hình Gemini API & Kết nối mạng",
+    apiKeyLabel: "Gemini API Key (lưu trữ local bảo mật)",
+    apiKeyPlaceholder: "Dán API Key từ Google AI Studio...",
+    proxyUrlLabel: "Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)",
+    proxyUrlPlaceholder: "Ví dụ: http://localhost:7890 hoặc Reverse Proxy Endpoint",
+    saveConfigBtn: "Lưu Cấu Hình",
+    cancelBtn: "Hủy",
+    backupTitle: "Quản lý sao lưu dữ liệu",
+    currentBackupLabel: "Dữ liệu sao lưu hiện tại (JSON)",
+    exportBackupPlaceholder: "Click 'Xuất sao lưu' để tạo mã backup...",
+    exportCopyBtn: "Xuất sao lưu & Sao chép",
+    importBackupLabel: "Dán dữ liệu sao lưu để khôi phục",
+    importBackupPlaceholder: "Dán nội dung JSON sao lưu vào đây...",
+    restoreBtn: "Khôi phục từ bản dán",
+    welcomeTitle: "👋 Chào mừng đến với Wealth Copilot!",
+    welcomeSubtitle: "Ứng dụng local-first của bạn hỗ trợ quản lý đa tài sản tùy chọn ở Việt Nam.",
+    onboardingStep1: "Cấu hình API Key: Bấm \"⚙️ Cài đặt API\" ở góc trên bên trái để lưu khóa Gemini cá nhân của bạn.",
+    onboardingStep2: "Nhập danh mục tự động: Kéo thả hoặc tải ảnh chụp màn hình sàn giao dịch (như TCBS) vào khu vực bóc tách để nhập liệu siêu tốc.",
+    onboardingStep3: "Nhập thủ công hoặc fallback: Tự do gõ mã tài sản bất kỳ, điều chỉnh Phí và Thuế giao dịch của các sàn Việt Nam.",
+    screenshotParserTitle: "📸 Bóc tách ảnh chụp màn hình",
+    screenshotParserSubtitle: "Tải lên ảnh chụp danh mục tài sản từ TCBS hoặc sàn Việt Nam khác để phân tích tự động.",
+    screenshotZoneParsing: "Gemini Vision đang bóc tách...",
+    screenshotZoneIdle: "Kéo & thả ảnh vào đây hoặc click để chọn",
+    draftTitle: "📋 Bản nháp",
+    addRowBtn: "+ Thêm dòng",
+    colAsset: "Mã",
+    colQty: "SL",
+    colCostBasis: "Giá vốn",
+    colActions: "Hành động",
+    deleteBtn: "Xóa",
+    saveBtn: "Lưu",
+    totalValueLabel: "Tổng giá trị tài sản",
+    localFirstValuation: "Định giá local-first",
+    expectedReturnLabel: "Lợi nhuận kỳ vọng",
+    perYear: "/ năm",
+    volatilityLabel: "Độ biến động (Volatility)",
+    sharpeRatioLabel: "Chỉ số Sharpe",
+    riskAdjustedReturnLabel: "Tỷ suất sinh lời",
+    totalAssetsChartCenter: "Tổng tài sản",
+    legendStatic: "(Tĩnh)",
+    liquidLabel: "Thanh khoản",
+    staticLabel: "Tĩnh/Khóa",
+    portfolioOverviewTitle: "Tổng quan danh mục hiện tại",
+    tableHeaderAsset: "Tài sản",
+    tableHeaderType: "Loại",
+    tableHeaderQty: "Số lượng",
+    tableHeaderCostBasis: "Giá vốn TB",
+    tableHeaderTotalValue: "Tổng giá trị",
+    tableHeaderWeight: "Tỷ trọng",
+    unitTael: "lượng",
+    unitShare: "CCQ",
+    recordTxTitle: "Ghi nhận giao dịch tài sản",
+    formAssetClassLabel: "Loại tài sản",
+    optionSavings: "Tiết kiệm",
+    optionGold: "Vàng SJC",
+    optionVN30: "ETF VN30",
+    optionDiamond: "ETF Diamond",
+    optionCustom: "Khác (Nhập mã tự chọn)...",
+    formCustomTickerLabel: "Nhập mã tài sản tự chọn",
+    formCustomTickerPlaceholder: "Ví dụ: HPG, TCB, VCB, VCG...",
+    formActionLabel: "Hành động",
+    optionDeposit: "Gửi thêm (Deposit)",
+    optionWithdraw: "Rút tiền (Withdraw)",
+    optionBuy: "Mua vào (Buy)",
+    optionSell: "Bán ra (Sell)",
+    amountDepositWithdrawLabel: "Số tiền nạp/rút (VND)",
+    txQtyLabel: "Số lượng giao dịch (lượng/CCQ)",
+    txPriceLabel: "Giá thị trường lúc giao dịch (đ/đơn vị)",
+    currentPriceLabel: "Giá hiện tại: {price}đ",
+    enterTxPricePlaceholder: "Nhập giá giao dịch...",
+    feeLabel: "Phí giao dịch (VND) - mặc định 0.15%",
+    taxLabel: "Thuế bán (VND) - mặc định 0.1% (khi Bán)",
+    txDateLabel: "Ngày giao dịch",
+    saveTxBtn: "Lưu giao dịch & Cập nhật",
+    historyTitle: "Lịch sử giao dịch",
+    historyEmptyState: "Chưa có giao dịch nào được ghi nhận.",
+    historyHeaderDate: "Ngày",
+    historyHeaderAsset: "Tài sản",
+    historyHeaderAction: "Hành động",
+    historyHeaderQty: "Số lượng",
+    historyHeaderPrice: "Giá",
+    historyHeaderFeeTax: "Phí / Thuế",
+    historyHeaderActions: "Thao tác",
+    historyFeeLabel: "Phí",
+    historyTaxLabel: "Thuế",
+    historyActionDeposit: "Nạp tiền",
+    historyActionWithdraw: "Rút tiền",
+    historyActionBuy: "Mua vào",
+    historyActionSell: "Bán ra",
+    solverTitle: "Đề xuất phân bổ tài sản tối ưu",
+    solverSubtitle: "Điều chỉnh hệ số ngại rủi ro λ để solver Clarabel (Rust) tính toán lại tỷ trọng tối ưu hóa Sharpe Ratio.",
+    riskAversionLabel: "Hệ số ngại rủi ro (Risk Aversion λ)",
+    riskAversionAggressive: "Liều lĩnh (Max Sharpe)",
+    riskAversionConservative: "An toàn (Min Volatility)",
+    solverOptimalWeightsHeader: "Tỷ trọng tối ưu đề xuất (λ = {lambda})",
+    solverVolLabel: "Rủi ro dao động",
+    solverRetLabel: "Lợi nhuận kỳ vọng",
+    rebalanceTitle: "Đề xuất giao dịch tái cơ cấu",
+    rebalanceEmptyState: "Danh mục hiện tại đã đạt trạng thái cân bằng tối ưu (độ lệch dưới 5%). Không cần giao dịch tái cơ cấu nào.",
+    rebalanceSubtitle: "Thực hiện các lệnh giao dịch sau để tối đa hóa Sharpe Ratio:",
+    deviationLabel: "Lệch {dev}% so với tối ưu",
+    badgeBuy: "MUA VÀO",
+    badgeSell: "BÁN RA",
+    savingsWithdrawalWarningTitle: "⚠️ Cảnh báo rút tiết kiệm trước hạn",
+    savingsWithdrawalWarningContent: "Đề xuất yêu cầu giảm số dư Tiết kiệm. Việc rút trước hạn tại Việt Nam sẽ chịu phạt lãi suất (bị đưa về mức không kỳ hạn ~0.1%/năm). Hãy cân nhắc chờ sổ tiết kiệm đáo hạn hoặc sử dụng các nguồn vốn nhàn rỗi khác.",
+    goldLiquidityWarningTitle: "⚠️ Cảnh báo thanh khoản SJC Gold",
+    goldLiquidityWarningContent: "Vàng SJC tại Việt Nam chịu sự quản lý chặt chẽ. Chênh lệch mua-bán lớn (2M - 4M VND) có thể làm giảm hiệu quả tái cân bằng ngắn hạn. Đề xuất này thích hợp cho chiến lược tích lũy dài hạn.",
+    aiAdvisorTitle: "🤖 Cố vấn Chiến lược AI (Gemini Advisor)",
+    aiAdvisorSubtitle: "Tích hợp danh mục hiện tại, các chỉ số kinh tế vĩ mô chính sách ở Việt Nam và kết quả solver để phân tích chiến lược tài sản toàn diện.",
+    aiAdvisorLoading: "Gemini đang sinh báo cáo phân tích...",
+    aiAdvisorRegenerateBtn: "🔄 Tạo lại tư vấn",
+    aiAdvisorGetBtn: "💡 Nhận Cố vấn Chiến lược AI",
+    loadingSqlite: "Đang tải dữ liệu SQLite...",
+    actionDepositSavings: "Gửi thêm {val} vào Tiết kiệm",
+    actionWithdrawSavings: "Rút {val} từ Tiết kiệm",
+    actionBuyAsset: "Mua thêm {qty} {unit} {asset} (khoảng {val})",
+    actionSellAsset: "Bán bớt {qty} {unit} {asset} (khoảng {val})",
+  }
+};
+
 const ASSET_NAMES_VI = {
   Savings: "Tiết kiệm",
   Gold: "Vàng SJC",
   VN30: "ETF VN30",
   Diamond: "ETF Diamond"
+};
+
+const ASSET_NAMES_EN = {
+  Savings: "Savings",
+  Gold: "SJC Gold",
+  VN30: "VN30 ETF",
+  Diamond: "Diamond ETF"
 };
 
 const vndFormatter = new Intl.NumberFormat("vi-VN", {
@@ -27,8 +333,8 @@ function getAssetColor(assetName) {
     Diamond: "#ec4899"
   };
   if (defaultColors[assetName]) return defaultColors[assetName];
-  if (assetName === "Tiết kiệm") return defaultColors.Savings;
-  if (assetName === "Vàng SJC") return defaultColors.Gold;
+  if (assetName === "Tiết kiệm" || assetName === "Savings") return defaultColors.Savings;
+  if (assetName === "Vàng SJC" || assetName === "Gold") return defaultColors.Gold;
 
   let hash = 0;
   for (let i = 0; i < assetName.length; i++) {
@@ -38,11 +344,25 @@ function getAssetColor(assetName) {
   return `hsl(${hue}, 70%, 50%)`;
 }
 
-function getAssetDisplayName(asset) {
-  return ASSET_NAMES_VI[asset] || asset;
+function getAssetDisplayName(asset, lang) {
+  if (lang === "vi") {
+    return ASSET_NAMES_VI[asset] || asset;
+  }
+  return ASSET_NAMES_EN[asset] || asset;
 }
 
 function App() {
+  // Language & Translation State
+  const [lang, setLang] = useState(() => localStorage.getItem("eb_lang") || "en");
+
+  function t(key, params = {}) {
+    let val = TRANSLATIONS[lang]?.[key] || TRANSLATIONS["en"]?.[key] || key;
+    Object.keys(params).forEach(p => {
+      val = val.replace(`{${p}}`, params[p]);
+    });
+    return val;
+  }
+
   // App State & Theme
   const [theme, setTheme] = useState("dark");
   const [portfolio, setPortfolio] = useState([]);
@@ -135,7 +455,7 @@ function App() {
       if (settings.gemini_api_key) setApiKey(settings.gemini_api_key);
       if (settings.proxy_url) setProxyUrl(settings.proxy_url);
     } catch (err) {
-      console.error("Lỗi tải cài đặt:", err);
+      console.error(t("systemError") + ":", err);
     }
   }
 
@@ -145,10 +465,10 @@ function App() {
     setSuccessMsg("");
     try {
       await invoke("save_user_settings", { api_key: apiKey, proxy_url: proxyUrl });
-      setSuccessMsg("Lưu cài đặt API Key & Proxy thành công!");
+      setSuccessMsg(t("saveSettingsSuccess"));
       setShowSettings(false);
     } catch (err) {
-      setErrorMsg(`Lỗi lưu cài đặt: ${err}`);
+      setErrorMsg(t("saveSettingsError", { err }));
     }
   }
 
@@ -172,7 +492,7 @@ function App() {
       const result = await invoke("run_rebalancer", { lambda });
       setOptimalResult(result);
     } catch (err) {
-      console.warn(`Lỗi tối ưu hóa danh mục: ${err}`);
+      console.warn("Error optimizing portfolio:", err);
     }
   }
 
@@ -187,14 +507,14 @@ function App() {
     const tax = parseFloat(formTax) || 0.0;
 
     if (isNaN(qty) || qty <= 0) {
-      setErrorMsg("Số lượng giao dịch phải lớn hơn 0");
+      setErrorMsg(t("qtyError"));
       return;
     }
 
     if (formAsset === "Savings") {
       price = 1.0;
     } else if (isNaN(price) || price <= 0) {
-      setErrorMsg("Giá giao dịch phải lớn hơn 0");
+      setErrorMsg(t("priceError"));
       return;
     }
 
@@ -204,7 +524,7 @@ function App() {
         try {
           await invoke("fetch_historical_prices", { symbol: formAssetCustom });
         } catch (err) {
-          console.warn(`Không tải được giá lịch sử cho ${formAssetCustom}: ${err}`);
+          console.warn(`Could not fetch historical prices for ${formAssetCustom}: ${err}`);
         }
       }
 
@@ -220,7 +540,7 @@ function App() {
       };
       
       await invoke("save_transaction", { log });
-      setSuccessMsg(`Đã ghi nhận giao dịch ${getAssetDisplayName(formAsset)} thành công!`);
+      setSuccessMsg(t("addTxSuccess", { asset: getAssetDisplayName(formAsset, lang) }));
       
       // Reset form fields
       setFormQty("");
@@ -254,18 +574,18 @@ function App() {
             quantity: parseFloat(item.quantity) || 0.0,
             purchase_price: parseFloat(item.purchase_price) || 0.0
           })));
-          setSuccessMsg("Đã phân tích ảnh chụp danh mục! Vui lòng đối chiếu và chỉnh sửa trong Bảng Duyệt Nháp bên dưới.");
+          setSuccessMsg(t("screenshotParsed"));
         } else {
-          throw new Error("Phản hồi bóc tách từ Gemini không đúng định dạng mảng");
+          throw new Error(t("draftInvalidRows"));
         }
       } catch (err) {
-        setErrorMsg(`Lỗi bóc tách ảnh: ${err}. Hãy cấu hình Gemini API Key và đảm bảo kết nối mạng không bị chặn.`);
+        setErrorMsg(t("screenshotError", { err }));
       } finally {
         setIsUploading(false);
       }
     };
     reader.onerror = () => {
-      setErrorMsg("Lỗi đọc file ảnh");
+      setErrorMsg(t("imageReadError"));
       setIsUploading(false);
     };
     reader.readAsDataURL(file);
@@ -277,7 +597,7 @@ function App() {
     
     for (const item of draftItems) {
       if (!item.asset.trim() || item.quantity <= 0 || item.purchase_price <= 0) {
-        setErrorMsg("Bảng nháp có dòng không hợp lệ. Vui lòng kiểm tra lại mã, số lượng và giá vốn.");
+        setErrorMsg(t("draftInvalidRows"));
         return;
       }
     }
@@ -290,7 +610,7 @@ function App() {
         try {
           await invoke("fetch_historical_prices", { symbol: item.asset });
         } catch (e) {
-          console.warn(`Không tải được giá lịch sử cho ${item.asset}: ${e}`);
+          console.warn(`Could not fetch historical prices for ${item.asset}: ${e}`);
         }
       }
 
@@ -304,11 +624,11 @@ function App() {
 
       await invoke("import_draft_transactions", { items: itemsToImport });
 
-      setSuccessMsg("Đã thêm toàn bộ danh mục từ bảng duyệt nháp vào SQLite thành công!");
+      setSuccessMsg(t("draftSavedSuccess"));
       setDraftItems([]);
       await loadPortfolioData();
     } catch (err) {
-      setErrorMsg(`Lỗi lưu danh mục: ${err}`);
+      setErrorMsg(t("portfolioSavedError", { err }));
       setIsLoading(false);
     }
   }
@@ -341,10 +661,10 @@ function App() {
     setErrorMsg("");
     setAdvisorText("");
     try {
-      const advice = await invoke("generate_wealth_advice");
+      const advice = await invoke("generate_wealth_advice", { lang });
       setAdvisorText(advice);
     } catch (err) {
-      setErrorMsg(`Lỗi sinh báo cáo AI: ${err}`);
+      setErrorMsg(t("aiAdvisorError", { err }));
     } finally {
       setAdvisorLoading(false);
     }
@@ -356,7 +676,7 @@ function App() {
     setSuccessMsg("");
     try {
       await invoke("sync_market_data");
-      setSuccessMsg("Đồng bộ dữ liệu giá từ GitHub thành công!");
+      setSuccessMsg(t("syncSuccess"));
       await loadPortfolioData();
     } catch (err) {
       setErrorMsg(String(err));
@@ -371,7 +691,7 @@ function App() {
       const backup = await invoke("export_backup");
       setBackupText(backup);
       await navigator.clipboard.writeText(backup);
-      setSuccessMsg("Đã xuất bản sao lưu và tự động sao chép vào clipboard!");
+      setSuccessMsg(t("backupExportSuccess"));
     } catch (err) {
       setErrorMsg(String(err));
     }
@@ -379,14 +699,14 @@ function App() {
 
   async function handleImportBackup() {
     if (!importText.trim()) {
-      setErrorMsg("Vui lòng dán dữ liệu sao lưu JSON cần khôi phục");
+      setErrorMsg(t("pasteBackupPrompt"));
       return;
     }
     setErrorMsg("");
     setSuccessMsg("");
     try {
       await invoke("import_backup", { backupJson: importText });
-      setSuccessMsg("Khôi phục dữ liệu từ bản sao lưu thành công!");
+      setSuccessMsg(t("backupImportSuccess"));
       setImportText("");
       setShowBackupDrawer(false);
       await loadPortfolioData();
@@ -396,14 +716,14 @@ function App() {
   }
 
   async function handleDeleteTransaction(id) {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa giao dịch này không? Tỷ trọng danh mục sẽ được tính toán lại.")) {
+    if (!window.confirm(t("deleteTxConfirm"))) {
       return;
     }
     setErrorMsg("");
     setSuccessMsg("");
     try {
       await invoke("delete_transaction", { id });
-      setSuccessMsg("Đã xóa giao dịch thành công!");
+      setSuccessMsg(t("deleteTxSuccess"));
       await loadPortfolioData();
     } catch (err) {
       setErrorMsg(String(err));
@@ -439,7 +759,7 @@ function App() {
     }
     return {
       ...item,
-      nameVi: getAssetDisplayName(item.asset),
+      nameVi: getAssetDisplayName(item.asset, lang),
       price: latestPrices[item.asset],
       value,
       color: getAssetColor(item.asset)
@@ -485,19 +805,19 @@ function App() {
         
         if (item.asset === "Savings") {
           if (isBuy) {
-            actionDescription = `Gửi thêm ${formatVND(diffValue)} vào Tiết kiệm`;
+            actionDescription = t("actionDepositSavings", { val: formatVND(diffValue) });
           } else {
-            actionDescription = `Rút ${formatVND(Math.abs(diffValue))} từ Tiết kiệm`;
+            actionDescription = t("actionWithdrawSavings", { val: formatVND(Math.abs(diffValue)) });
             hasWithdrawalWarning = true;
           }
         } else {
           const qtyDiff = Math.abs(diffValue / latestPrices[item.asset]);
-          const unit = item.asset === "Gold" ? "lượng" : "CCQ";
+          const unit = item.asset === "Gold" ? t("unitTael") : t("unitShare");
           
           if (isBuy) {
-            actionDescription = `Mua thêm ${qtyDiff.toFixed(2)} ${unit} ${getAssetDisplayName(item.asset)} (khoảng ${formatVND(diffValue)})`;
+            actionDescription = t("actionBuyAsset", { qty: qtyDiff.toFixed(2), unit, asset: getAssetDisplayName(item.asset, lang), val: formatVND(diffValue) });
           } else {
-            actionDescription = `Bán bớt ${qtyDiff.toFixed(2)} ${unit} ${getAssetDisplayName(item.asset)} (khoảng ${formatVND(Math.abs(diffValue))})`;
+            actionDescription = t("actionSellAsset", { qty: qtyDiff.toFixed(2), unit, asset: getAssetDisplayName(item.asset, lang), val: formatVND(Math.abs(diffValue)) });
           }
           
           if (item.asset === "Gold") {
@@ -526,28 +846,40 @@ function App() {
     <div className="app-container">
       <header>
         <div className="brand-section">
-          <h1>Wealth Copilot</h1>
-          <p>Cố Vấn Tài Sản & Tái Cơ Cấu Thông Minh local-first (Việt Nam)</p>
+          <h1>{t("title")}</h1>
+          <p>{t("subtitle")}</p>
         </div>
         <div className="header-actions">
+          {/* Language Toggle */}
+          <button 
+            className="btn-secondary btn-small"
+            style={{ fontWeight: "bold" }}
+            onClick={() => {
+              const nextLang = lang === "en" ? "vi" : "en";
+              setLang(nextLang);
+              localStorage.setItem("eb_lang", nextLang);
+            }}
+          >
+            🌐 {lang === "en" ? "VI" : "EN"}
+          </button>
           {/* Theme switch button */}
           <button 
             className="btn-secondary btn-small"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
-            {theme === "dark" ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            {theme === "dark" ? t("lightMode") : t("darkMode")}
           </button>
           <button 
             className="btn-secondary btn-small"
             onClick={() => setShowSettings(!showSettings)}
           >
-            ⚙️ Cài đặt API
+            {t("apiSettings")}
           </button>
           <button 
             className="btn-secondary btn-small"
             onClick={() => setShowBackupDrawer(!showBackupDrawer)}
           >
-            Sao lưu / Khôi phục
+            {t("backupRestore")}
           </button>
           <button 
             className="btn-primary btn-small" 
@@ -555,7 +887,7 @@ function App() {
             disabled={syncLoading}
           >
             {syncLoading && <span className="spinner"></span>}
-            {syncLoading ? "Đang đồng bộ..." : "Đồng bộ giá thị trường"}
+            {syncLoading ? t("syncing") : t("syncMarketPrices")}
           </button>
         </div>
       </header>
@@ -563,9 +895,9 @@ function App() {
       {/* Warning Banner */}
       {isSyncWarning && (
         <div className="alert alert-warning-sync">
-          <span className="alert-title">⚠️ Dữ liệu giá thị trường chưa đồng bộ mới nhất</span>
+          <span className="alert-title">{t("syncWarningTitle")}</span>
           <span className="alert-content">
-            Lần đồng bộ giá thị trường gần nhất là <strong>{latestPriceDate || "chưa rõ"}</strong> (đã quá 5 ngày). Hãy bấm <strong>"Đồng bộ giá thị trường"</strong> để solver sử dụng dữ liệu mới nhất.
+            {t("syncWarningContent", { date: latestPriceDate || "unknown", days: latestPriceDate ? String(Math.ceil(Math.abs(new Date() - new Date(latestPriceDate)) / (1000 * 60 * 60 * 24))) : "unknown" })}
           </span>
         </div>
       )}
@@ -573,7 +905,7 @@ function App() {
       {/* Notifications */}
       {errorMsg && (
         <div className="alert alert-error">
-          <span className="alert-title">Lỗi hệ thống</span>
+          <span className="alert-title">{t("systemError")}</span>
           <span className="alert-content">{errorMsg}</span>
         </div>
       )}
@@ -586,33 +918,33 @@ function App() {
       {/* Settings Panel */}
       {showSettings && (
         <div className="settings-drawer">
-          <h3>⚙️ Cấu hình Gemini API & Kết nối mạng</h3>
+          <h3>{t("apiConfigTitle")}</h3>
           <form onSubmit={handleSaveSettings} style={{ marginTop: "1rem" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
               <div className="form-group">
-                <label htmlFor="settings-api-key">Gemini API Key (lưu trữ local bảo mật)</label>
+                <label htmlFor="settings-api-key">{t("apiKeyLabel")}</label>
                 <input 
                   id="settings-api-key"
                   type="password" 
-                  placeholder="Dán API Key từ Google AI Studio..." 
+                  placeholder={t("apiKeyPlaceholder")}
                   value={apiKey} 
                   onChange={(e) => setApiKey(e.target.value)} 
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="settings-proxy-url">Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)</label>
+                <label htmlFor="settings-proxy-url">{t("proxyUrlLabel")}</label>
                 <input 
                   id="settings-proxy-url"
                   type="text" 
-                  placeholder="Ví dụ: http://localhost:7890 hoặc Reverse Proxy Endpoint" 
+                  placeholder={t("proxyUrlPlaceholder")}
                   value={proxyUrl} 
                   onChange={(e) => setProxyUrl(e.target.value)} 
                 />
               </div>
             </div>
             <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-              <button type="submit" className="btn btn-primary btn-small">Lưu Cấu Hình</button>
-              <button type="button" className="btn btn-secondary btn-small" onClick={() => setShowSettings(false)}>Hủy</button>
+              <button type="submit" className="btn btn-primary btn-small">{t("saveConfigBtn")}</button>
+              <button type="button" className="btn btn-secondary btn-small" onClick={() => setShowSettings(false)}>{t("cancelBtn")}</button>
             </div>
           </form>
         </div>
@@ -621,32 +953,32 @@ function App() {
       {/* Backup Drawer */}
       {showBackupDrawer && (
         <div className="backup-drawer">
-          <h3>Quản lý sao lưu dữ liệu</h3>
+          <h3>{t("backupTitle")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "1rem" }}>
             <div>
-              <label htmlFor="backup-export-text">Dữ liệu sao lưu hiện tại (JSON)</label>
+              <label htmlFor="backup-export-text">{t("currentBackupLabel")}</label>
               <textarea 
                 id="backup-export-text"
                 className="backup-textarea" 
                 readOnly 
                 value={backupText} 
-                placeholder="Click 'Xuất sao lưu' để tạo mã backup..."
+                placeholder={t("exportBackupPlaceholder")}
               />
               <button className="btn btn-secondary btn-small" onClick={handleExportBackup}>
-                Xuất sao lưu & Sao chép
+                {t("exportCopyBtn")}
               </button>
             </div>
             <div>
-              <label htmlFor="backup-import-text">Dán dữ liệu sao lưu để khôi phục</label>
+              <label htmlFor="backup-import-text">{t("importBackupLabel")}</label>
               <textarea 
                 id="backup-import-text"
                 className="backup-textarea" 
                 value={importText} 
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder="Dán nội dung JSON sao lưu vào đây..."
+                placeholder={t("importBackupPlaceholder")}
               />
               <button className="btn btn-primary btn-small" onClick={handleImportBackup}>
-                Khôi phục từ bản dán
+                {t("restoreBtn")}
               </button>
             </div>
           </div>
@@ -656,20 +988,18 @@ function App() {
       {isLoading ? (
         <div style={{ textAlign: "center", padding: "3rem" }}>
           <span className="spinner" style={{ width: "32px", height: "32px" }}></span>
-          <p style={{ marginTop: "1rem", color: "var(--text-secondary)" }}>Đang tải dữ liệu SQLite...</p>
+          <p style={{ marginTop: "1rem", color: "var(--text-secondary)" }}>{t("loadingSqlite")}</p>
         </div>
       ) : (
         <>
           {transactions.length === 0 && (
             <div className="onboarding-banner">
-              <h3>👋 Chào mừng đến với Wealth Copilot!</h3>
-              <p>
-                Ứng dụng local-first của bạn hỗ trợ quản lý đa tài sản tùy chọn ở Việt Nam.
-              </p>
+              <h3>{t("welcomeTitle")}</h3>
+              <p>{t("welcomeSubtitle")}</p>
               <ol style={{ fontSize: "0.85rem", paddingLeft: "1.2rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>
-                <li><strong>Cấu hình API Key:</strong> Bấm "⚙️ Cài đặt API" ở góc trên bên trái để lưu khóa Gemini cá nhân của bạn.</li>
-                <li><strong>Nhập danh mục tự động:</strong> Kéo thả hoặc tải ảnh chụp màn hình sàn giao dịch (như TCBS) vào khu vực bóc tách để nhập liệu siêu tốc.</li>
-                <li><strong>Nhập thủ công hoặc fallback:</strong> Tự do gõ mã tài sản bất kỳ, điều chỉnh Phí và Thuế giao dịch của các sàn Việt Nam.</li>
+                <li><strong>{t("onboardingStep1")}</strong></li>
+                <li><strong>{t("onboardingStep2")}</strong></li>
+                <li><strong>{t("onboardingStep3")}</strong></li>
               </ol>
             </div>
           )}
@@ -679,19 +1009,19 @@ function App() {
             <aside className="app-sidebar">
               {/* Screenshot Ingestion Area */}
               <div className="sidebar-section">
-                <h2>📸 Bóc tách ảnh chụp màn hình</h2>
+                <h2>{t("screenshotParserTitle")}</h2>
                 <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: "1.4" }}>
-                  Tải lên ảnh chụp danh mục tài sản từ TCBS hoặc sàn Việt Nam khác để phân tích tự động.
+                  {t("screenshotParserSubtitle")}
                 </p>
                 <div className="screenshot-zone" style={{ position: "relative" }}>
                   {isUploading ? (
                     <div>
                       <span className="spinner" style={{ width: "24px", height: "24px", display: "inline-block" }}></span>
-                      <p style={{ marginTop: "0.5rem" }}>Gemini Vision đang bóc tách...</p>
+                      <p style={{ marginTop: "0.5rem" }}>{t("screenshotZoneParsing")}</p>
                     </div>
                   ) : (
                     <div>
-                      <p>Kéo & thả ảnh vào đây hoặc click để chọn</p>
+                      <p>{t("screenshotZoneIdle")}</p>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -706,16 +1036,16 @@ function App() {
                 {draftItems.length > 0 && (
                   <div className="draft-table-section" style={{ marginTop: "1.5rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                      <h3>📋 Bản nháp</h3>
-                      <button className="btn btn-secondary btn-xs" onClick={handleAddDraftItem}>+ Thêm dòng</button>
+                      <h3>{t("draftTitle")}</h3>
+                      <button className="btn btn-secondary btn-xs" onClick={handleAddDraftItem}>{t("addRowBtn")}</button>
                     </div>
                     <table style={{ width: "100%", marginBottom: "1rem" }}>
                       <thead>
                         <tr>
-                          <th>Mã</th>
-                          <th className="num-col">SL</th>
-                          <th className="num-col">Giá vốn</th>
-                          <th style={{ width: "60px", textAlign: "center" }}>Hành động</th>
+                          <th>{t("colAsset")}</th>
+                          <th className="num-col">{t("colQty")}</th>
+                          <th className="num-col">{t("colCostBasis")}</th>
+                          <th style={{ width: "60px", textAlign: "center" }}>{t("colActions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -751,7 +1081,7 @@ function App() {
                                 style={{ padding: "2px 6px", fontSize: "11px", backgroundColor: "#dc3545", color: "white", border: "none" }}
                                 onClick={() => handleDeleteDraftItem(idx)}
                               >
-                                Xóa
+                                {t("deleteBtn")}
                               </button>
                             </td>
                           </tr>
@@ -759,8 +1089,8 @@ function App() {
                       </tbody>
                     </table>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button className="btn btn-primary btn-xs" style={{ flex: 1 }} onClick={handleSaveDraft}>Lưu</button>
-                      <button className="btn btn-secondary btn-xs" onClick={() => setDraftItems([])}>Hủy</button>
+                      <button className="btn btn-primary btn-xs" style={{ flex: 1 }} onClick={handleSaveDraft}>{t("saveBtn")}</button>
+                      <button className="btn btn-secondary btn-xs" onClick={() => setDraftItems([])}>{t("cancelBtn")}</button>
                     </div>
                   </div>
                 )}
@@ -773,32 +1103,32 @@ function App() {
               {/* Top Stats Bar */}
               <div className="stats-grid">
                 <div className="stat-card">
-                  <span className="stat-label">Tổng giá trị tài sản</span>
+                  <span className="stat-label">{t("totalValueLabel")}</span>
                   <span className="stat-value">{formatVND(totalPortfolioValue)}</span>
-                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>Định giá local-first</span>
+                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>{t("localFirstValuation")}</span>
                 </div>
                 <div className="stat-card">
-                  <span className="stat-label">Lợi nhuận kỳ vọng</span>
+                  <span className="stat-label">{t("expectedReturnLabel")}</span>
                   <span className="stat-value">
                     {optimalResult ? `${(optimalResult.expected_return * 100).toFixed(2)}%` : "—"}
                   </span>
-                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>/ năm</span>
+                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>{t("perYear")}</span>
                 </div>
                 <div className="stat-card">
-                  <span className="stat-label">Độ biến động (Volatility)</span>
+                  <span className="stat-label">{t("volatilityLabel")}</span>
                   <span className="stat-value">
                     {optimalResult ? `${(optimalResult.volatility * 100).toFixed(2)}%` : "—"}
                   </span>
-                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>/ năm</span>
+                  <span className="stat-sub" style={{ color: "var(--text-secondary)" }}>{t("perYear")}</span>
                 </div>
                 <div className="stat-card">
-                  <span className="stat-label">Chỉ số Sharpe</span>
+                  <span className="stat-label">{t("sharpeRatioLabel")}</span>
                   <span className="stat-value">
                     {optimalResult && optimalResult.volatility > 0 
                       ? (optimalResult.expected_return / optimalResult.volatility).toFixed(2)
                       : "—"}
                   </span>
-                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>Tỷ suất sinh lời</span>
+                  <span className="stat-sub" style={{ color: "var(--color-success)" }}>{t("riskAdjustedReturnLabel")}</span>
                 </div>
               </div>
 
@@ -810,7 +1140,7 @@ function App() {
                   
                   {/* Portfolio Status Card */}
                   <div className="card">
-                    <h2>Tổng quan danh mục hiện tại</h2>
+                    <h2>{t("portfolioOverviewTitle")}</h2>
                     
                     <div className="chart-section">
                       {/* SVG Ring Chart */}
@@ -858,7 +1188,7 @@ function App() {
                           <div className="chart-total-value">
                             {formatVND(totalPortfolioValue)}
                           </div>
-                          <div className="chart-total-label">Tổng tài sản</div>
+                          <div className="chart-total-label">{t("totalAssetsChartCenter")}</div>
                         </div>
                       </div>
 
@@ -868,7 +1198,7 @@ function App() {
                           <div key={item.asset} className={`legend-item ${item.asset.toLowerCase()}`}>
                             <span className="legend-label">
                               {item.nameVi} 
-                              {item.asset_type === "Static" && <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}> (Tĩnh)</span>}
+                              {item.asset_type === "Static" && <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}> {t("legendStatic")}</span>}
                             </span>
                             <span className="legend-value">
                               {totalPortfolioValue > 0 
@@ -884,12 +1214,12 @@ function App() {
                     <table>
                       <thead>
                         <tr>
-                          <th>Tài sản</th>
-                          <th>Loại</th>
-                          <th className="num-col">Số lượng</th>
-                          <th className="num-col">Giá vốn TB</th>
-                          <th className="num-col">Tổng giá trị</th>
-                          <th className="num-col">Tỷ trọng</th>
+                          <th>{t("tableHeaderAsset")}</th>
+                          <th>{t("tableHeaderType")}</th>
+                          <th className="num-col">{t("tableHeaderQty")}</th>
+                          <th className="num-col">{t("tableHeaderCostBasis")}</th>
+                          <th className="num-col">{t("tableHeaderTotalValue")}</th>
+                          <th className="num-col">{t("tableHeaderWeight")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -903,13 +1233,13 @@ function App() {
                             </td>
                             <td>
                               <span style={{ fontSize: "0.8rem", color: item.asset_type === "Liquid" ? "var(--color-success)" : "var(--text-secondary)" }}>
-                                {item.asset_type === "Liquid" ? "Thanh khoản" : "Tĩnh/Khóa"}
+                                {item.asset_type === "Liquid" ? t("liquidLabel") : t("staticLabel")}
                               </span>
                             </td>
                             <td className="num-col">
                               {item.asset === "Savings" 
                                 ? formatVND(item.quantity)
-                                : `${item.quantity.toLocaleString("vi-VN")} ${item.asset === "Gold" ? "lượng" : "CCQ"}`}
+                                : `${item.quantity.toLocaleString("vi-VN")} ${item.asset === "Gold" ? t("unitTael") : t("unitShare")}`}
                             </td>
                             <td className="num-col">{item.asset === "Savings" ? "—" : formatVND(item.purchase_price)}</td>
                             <td className="num-col">{formatVND(item.value)}</td>
@@ -926,11 +1256,11 @@ function App() {
 
                   {/* Record Transaction Form */}
                   <div className="card">
-                    <h2>Ghi nhận giao dịch tài sản</h2>
+                    <h2>{t("recordTxTitle")}</h2>
                     <form onSubmit={handleAddTransaction}>
                       <div className="form-grid">
                         <div className="form-group">
-                          <label htmlFor="form-asset-select">Loại tài sản</label>
+                          <label htmlFor="form-asset-select">{t("formAssetClassLabel")}</label>
                           <select 
                             id="form-asset-select"
                             value={formAssetSelect} 
@@ -944,22 +1274,22 @@ function App() {
                               }
                             }}
                           >
-                            <option value="Savings">Tiết kiệm</option>
-                            <option value="Gold">Vàng SJC</option>
-                            <option value="VN30">ETF VN30</option>
-                            <option value="Diamond">ETF Diamond</option>
-                            <option value="Custom">Khác (Nhập mã tự chọn)...</option>
+                            <option value="Savings">{t("optionSavings")}</option>
+                            <option value="Gold">{t("optionGold")}</option>
+                            <option value="VN30">{t("optionVN30")}</option>
+                            <option value="Diamond">{t("optionDiamond")}</option>
+                            <option value="Custom">{t("optionCustom")}</option>
                           </select>
                         </div>
 
                         {formAssetSelect === "Custom" && (
                           <div className="form-group">
-                            <label htmlFor="form-asset-custom">Nhập mã tài sản tự chọn</label>
+                            <label htmlFor="form-asset-custom">{t("formCustomTickerLabel")}</label>
                             <input 
                               id="form-asset-custom"
                               type="text" 
                               required
-                              placeholder="Ví dụ: HPG, TCB, VCB, VCG..." 
+                              placeholder={t("formCustomTickerPlaceholder")}
                               value={formAssetCustom}
                               onChange={(e) => setFormAssetCustom(e.target.value.toUpperCase())}
                             />
@@ -967,7 +1297,7 @@ function App() {
                         )}
 
                         <div className="form-group">
-                          <label htmlFor="form-action-select">Hành động</label>
+                          <label htmlFor="form-action-select">{t("formActionLabel")}</label>
                           <select 
                             id="form-action-select"
                             value={formAction} 
@@ -975,13 +1305,13 @@ function App() {
                           >
                             {formAsset === "Savings" ? (
                               <>
-                                <option value="Deposit">Gửi thêm (Deposit)</option>
-                                <option value="Withdraw">Rút tiền (Withdraw)</option>
+                                <option value="Deposit">{t("optionDeposit")}</option>
+                                <option value="Withdraw">{t("optionWithdraw")}</option>
                               </>
                             ) : (
                               <>
-                                <option value="Buy">Mua vào (Buy)</option>
-                                <option value="Sell">Bán ra (Sell)</option>
+                                <option value="Buy">{t("optionBuy")}</option>
+                                <option value="Sell">{t("optionSell")}</option>
                               </>
                             )}
                           </select>
@@ -991,7 +1321,7 @@ function App() {
                       <div className="form-grid">
                         <div className="form-group">
                           <label htmlFor="form-quantity-input">
-                            {formAsset === "Savings" ? "Số tiền nạp/rút (VND)" : "Số lượng giao dịch (lượng/CCQ)"}
+                            {formAsset === "Savings" ? t("amountDepositWithdrawLabel") : t("txQtyLabel")}
                           </label>
                           <input 
                             id="form-quantity-input"
@@ -1006,12 +1336,12 @@ function App() {
 
                         {formAsset !== "Savings" && (
                           <div className="form-group">
-                            <label htmlFor="form-price-input">Giá thị trường lúc giao dịch (đ/đơn vị)</label>
+                            <label htmlFor="form-price-input">{t("txPriceLabel")}</label>
                             <input 
                               id="form-price-input"
                               type="number" 
                               step="any"
-                              placeholder={latestPrices[formAsset] !== undefined ? `Giá hiện tại: ${latestPrices[formAsset].toLocaleString("vi-VN")}đ` : "Nhập giá giao dịch..."}
+                              placeholder={latestPrices[formAsset] !== undefined ? t("currentPriceLabel", { price: latestPrices[formAsset].toLocaleString("vi-VN") }) : t("enterTxPricePlaceholder")}
                               value={formPrice}
                               onChange={(e) => setFormPrice(e.target.value)}
                             />
@@ -1022,7 +1352,7 @@ function App() {
                       {formAsset !== "Savings" && (
                         <div className="form-grid" style={{ marginTop: "0.5rem" }}>
                           <div className="form-group">
-                            <label htmlFor="form-fee-input">Phí giao dịch (VND) - mặc định 0.15%</label>
+                            <label htmlFor="form-fee-input">{t("feeLabel")}</label>
                             <input 
                               id="form-fee-input"
                               type="number" 
@@ -1033,7 +1363,7 @@ function App() {
                             />
                           </div>
                           <div className="form-group">
-                            <label htmlFor="form-tax-input">Thuế bán (VND) - mặc định 0.1% (khi Bán)</label>
+                            <label htmlFor="form-tax-input">{t("taxLabel")}</label>
                             <input 
                               id="form-tax-input"
                               type="number" 
@@ -1048,7 +1378,7 @@ function App() {
                       )}
 
                       <div className="form-group" style={{ marginBottom: "1rem", marginTop: "0.5rem" }}>
-                        <label htmlFor="form-date-input">Ngày giao dịch</label>
+                        <label htmlFor="form-date-input">{t("txDateLabel")}</label>
                         <input 
                           id="form-date-input"
                           type="date" 
@@ -1059,40 +1389,40 @@ function App() {
                       </div>
 
                       <button type="submit" className="btn btn-primary btn-full">
-                        Lưu giao dịch & Cập nhật
+                        {t("saveTxBtn")}
                       </button>
                     </form>
                   </div>
 
                   {/* Transaction History Card */}
                   <div className="card transaction-history-card">
-                    <h2>Lịch sử giao dịch</h2>
+                    <h2>{t("historyTitle")}</h2>
                     {transactions.length === 0 ? (
-                      <div className="empty-state">Chưa có giao dịch nào được ghi nhận.</div>
+                      <div className="empty-state">{t("historyEmptyState")}</div>
                     ) : (
                       <div className="transaction-list-container">
                         <table className="transaction-table">
                           <thead>
                             <tr>
-                              <th>Ngày</th>
-                              <th>Tài sản</th>
-                              <th>Hành động</th>
-                              <th className="num-col">Số lượng</th>
-                              <th className="num-col">Giá</th>
-                              <th>Phí / Thuế</th>
-                              <th style={{ width: "60px", textAlign: "center" }}>Thao tác</th>
+                              <th>{t("historyHeaderDate")}</th>
+                              <th>{t("historyHeaderAsset")}</th>
+                              <th>{t("historyHeaderAction")}</th>
+                              <th className="num-col">{t("historyHeaderQty")}</th>
+                              <th className="num-col">{t("historyHeaderPrice")}</th>
+                              <th>{t("historyHeaderFeeTax")}</th>
+                              <th style={{ width: "60px", textAlign: "center" }}>{t("historyHeaderActions")}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {transactions.map((tx) => (
                               <tr key={tx.id}>
                                 <td>{tx.date}</td>
-                                <td>{getAssetDisplayName(tx.asset)}</td>
+                                <td>{getAssetDisplayName(tx.asset, lang)}</td>
                                 <td>
                                   <span className={`tx-action-badge ${(tx.action_type === 'Buy' || tx.action_type === 'Deposit') ? 'buy' : 'sell'}`}>
-                                    {tx.action_type === 'Deposit' ? 'Nạp tiền' :
-                                     tx.action_type === 'Withdraw' ? 'Rút tiền' :
-                                     tx.action_type === 'Buy' ? 'Mua vào' : 'Bán ra'}
+                                    {tx.action_type === 'Deposit' ? t("historyActionDeposit") :
+                                     tx.action_type === 'Withdraw' ? t("historyActionWithdraw") :
+                                     tx.action_type === 'Buy' ? t("historyActionBuy") : t("historyActionSell")}
                                   </span>
                                 </td>
                                 <td className="num-col">
@@ -1104,8 +1434,8 @@ function App() {
                                 <td>
                                   {tx.asset === 'Savings' ? '—' : (
                                     <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                      {tx.fee ? `Phí: ${formatVND(tx.fee)}` : ""}
-                                      {tx.tax ? ` | Thuế: ${formatVND(tx.tax)}` : ""}
+                                      {tx.fee ? `${t("historyFeeLabel")}: ${formatVND(tx.fee)}` : ""}
+                                      {tx.tax ? ` | ${t("historyTaxLabel")}: ${formatVND(tx.tax)}` : ""}
                                     </span>
                                   )}
                                 </td>
@@ -1114,7 +1444,7 @@ function App() {
                                     className="btn-danger btn-xs"
                                     onClick={() => handleDeleteTransaction(tx.id)}
                                   >
-                                    Xóa
+                                    {t("deleteBtn")}
                                   </button>
                                 </td>
                               </tr>
@@ -1132,15 +1462,15 @@ function App() {
                   
                   {/* Risk Appetite & Optimal Portfolio */}
                   <div className="card">
-                    <h2>Đề xuất phân bổ tài sản tối ưu</h2>
+                    <h2>{t("solverTitle")}</h2>
                     <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                      Điều chỉnh hệ số ngại rủi ro λ để solver Clarabel (Rust) tính toán lại tỷ trọng tối ưu hóa Sharpe Ratio.
+                      {t("solverSubtitle")}
                     </p>
 
                     {/* Slider lambda */}
                     <div className="slider-container">
                       <div className="slider-header">
-                        <span className="slider-title">Hệ số ngại rủi ro (Risk Aversion λ)</span>
+                        <span className="slider-title">{t("riskAversionLabel")}</span>
                         <span className="slider-value">{lambda.toFixed(1)}</span>
                       </div>
                       <input 
@@ -1152,8 +1482,8 @@ function App() {
                         onChange={(e) => setLambda(parseFloat(e.target.value))}
                       />
                       <div className="slider-labels">
-                        <span>Liều lĩnh (Max Sharpe)</span>
-                        <span>An toàn (Min Volatility)</span>
+                        <span>{t("riskAversionAggressive")}</span>
+                        <span>{t("riskAversionConservative")}</span>
                       </div>
                     </div>
 
@@ -1161,7 +1491,7 @@ function App() {
                     {optimalResult && (
                       <div style={{ marginTop: "1rem" }}>
                         <h3 style={{ fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", marginBottom: "0.75rem", color: "var(--text-secondary)" }}>
-                          Tỷ trọng tối ưu đề xuất (λ = {lambda.toFixed(1)})
+                          {t("solverOptimalWeightsHeader", { lambda: lambda.toFixed(1) })}
                         </h3>
                         
                         {portfolioWithValues.map((item) => {
@@ -1192,15 +1522,15 @@ function App() {
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1.25rem", padding: "0.75rem", backgroundColor: "var(--bg-main)", border: "1px solid var(--border)" }}>
                           <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Lợi nhuận kỳ vọng</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>{t("expectedReturnLabel")}</div>
                             <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-success)", marginTop: "2px", fontFamily: "JetBrains Mono" }}>
-                              {(optimalResult.expected_return * 100).toFixed(2)}% / năm
+                              {(optimalResult.expected_return * 100).toFixed(2)}% {t("perYear")}
                             </div>
                           </div>
                           <div style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>Rủi ro dao động</div>
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "uppercase" }}>{t("solverVolLabel")}</div>
                             <div style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-error)", marginTop: "2px", fontFamily: "JetBrains Mono" }}>
-                              {(optimalResult.volatility * 100).toFixed(2)}% / năm
+                              {(optimalResult.volatility * 100).toFixed(2)}% {t("perYear")}
                             </div>
                           </div>
                         </div>
@@ -1210,16 +1540,16 @@ function App() {
 
                   {/* Rebalancing Suggestion Card */}
                   <div className="card">
-                    <h2>Đề xuất giao dịch tái cơ cấu</h2>
+                    <h2>{t("rebalanceTitle")}</h2>
 
                     {suggestions.length === 0 ? (
                       <div className="empty-state">
-                        Danh mục hiện tại đã đạt trạng thái cân bằng tối ưu (độ lệch dưới 5%). Không cần giao dịch tái cơ cấu nào.
+                        {t("rebalanceEmptyState")}
                       </div>
                     ) : (
                       <div className="suggestion-list">
                         <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
-                          Thực hiện các lệnh giao dịch sau để tối đa hóa Sharpe Ratio:
+                          {t("rebalanceSubtitle")}
                         </p>
                         
                         {suggestions.map((sug) => (
@@ -1227,11 +1557,11 @@ function App() {
                             <div className="suggestion-details">
                               <span className="suggestion-action">{sug.action}</span>
                               <span className="suggestion-reason">
-                                Lệch {sug.deviation > 0 ? `+${sug.deviation}%` : `${sug.deviation}%`} so với tối ưu
+                                {t("deviationLabel", { dev: sug.deviation > 0 ? `+${sug.deviation}` : sug.deviation })}
                               </span>
                             </div>
                             <span className={`suggestion-badge ${sug.isBuy ? 'buy' : 'sell'}`}>
-                              {sug.isBuy ? "MUA VÀO" : "BÁN RA"}
+                              {sug.isBuy ? t("badgeBuy") : t("badgeSell")}
                             </span>
                           </div>
                         ))}
@@ -1241,18 +1571,18 @@ function App() {
                     {/* Action Warnings */}
                     {hasWithdrawalWarning && (
                       <div className="alert alert-warning">
-                        <span className="alert-title">⚠️ Cảnh báo rút tiết kiệm trước hạn</span>
+                        <span className="alert-title">{t("savingsWithdrawalWarningTitle")}</span>
                         <span className="alert-content">
-                          Đề xuất yêu cầu giảm số dư Tiết kiệm. Việc rút trước hạn tại Việt Nam sẽ chịu phạt lãi suất (bị đưa về mức không kỳ hạn ~0.1%/năm). Hãy cân nhắc chờ sổ tiết kiệm đáo hạn hoặc sử dụng các nguồn vốn nhàn rỗi khác.
+                          {t("savingsWithdrawalWarningContent")}
                         </span>
                       </div>
                     )}
 
                     {hasGoldWarning && (
                       <div className="alert alert-warning">
-                        <span className="alert-title">⚠️ Cảnh báo thanh khoản SJC Gold</span>
+                        <span className="alert-title">{t("goldLiquidityWarningTitle")}</span>
                         <span className="alert-content">
-                          Vàng SJC tại Việt Nam chịu sự quản lý chặt chẽ. Chênh lệch mua-bán lớn (2M - 4M VND) có thể làm giảm hiệu quả tái cân bằng ngắn hạn. Đề xuất này thích hợp cho chiến lược tích lũy dài hạn.
+                          {t("goldLiquidityWarningContent")}
                         </span>
                       </div>
                     )}
@@ -1260,24 +1590,24 @@ function App() {
 
                   {/* AI Strategic Advisor Tab */}
                   <div className="card">
-                    <h2>🤖 Cố vấn Chiến lược AI (Gemini Advisor)</h2>
+                    <h2>{t("aiAdvisorTitle")}</h2>
                     <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                      Tích hợp danh mục hiện tại, các chỉ số kinh tế vĩ mô chính sách ở Việt Nam và kết quả solver để phân tích chiến lược tài sản toàn diện.
+                      {t("aiAdvisorSubtitle")}
                     </p>
 
                     {advisorLoading ? (
                       <div style={{ textAlign: "center", padding: "1.5rem" }}>
                         <span className="spinner" style={{ width: "24px", height: "24px" }}></span>
-                        <p style={{ marginTop: "0.5rem" }}>Gemini đang sinh báo cáo phân tích...</p>
+                        <p style={{ marginTop: "0.5rem" }}>{t("aiAdvisorLoading")}</p>
                       </div>
                     ) : advisorText ? (
                       <div className="advisor-report-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                         <div className="advisor-report-window">{advisorText}</div>
-                        <button className="btn btn-secondary btn-small" style={{ width: "auto", alignSelf: "flex-start" }} onClick={handleGenerateAdvice}>🔄 Tạo lại tư vấn</button>
+                        <button className="btn btn-secondary btn-small" style={{ width: "auto", alignSelf: "flex-start" }} onClick={handleGenerateAdvice}>{t("aiAdvisorRegenerateBtn")}</button>
                       </div>
                     ) : (
                       <button className="btn btn-primary btn-full" onClick={handleGenerateAdvice}>
-                        💡 Nhận Cố vấn Chiến lược AI
+                        {t("aiAdvisorGetBtn")}
                       </button>
                     )}
                   </div>

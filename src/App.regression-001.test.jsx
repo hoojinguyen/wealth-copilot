@@ -33,3 +33,275 @@ test("should load the application and render successfully in a browser environme
   expect(screen.getAllByText("Tiết kiệm").length).toBeGreaterThan(0);
   expect(screen.getAllByText("Vàng SJC").length).toBeGreaterThan(0);
 });
+
+test("should allow selecting Custom option without crashing", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  } else {
+    const mockStorage = {};
+    global.localStorage = {
+      getItem: (key) => mockStorage[key] || null,
+      setItem: (key, val) => { mockStorage[key] = String(val); },
+      clear: () => { for (const k in mockStorage) delete mockStorage[k]; }
+    };
+    global.window.localStorage = global.localStorage;
+  }
+
+  render(<App />);
+
+  // Wait for the asset select dropdown
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  expect(selectElement).toBeInTheDocument();
+
+  // Change selection to Custom
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+  fireEvent.change(selectElement, { target: { value: "Custom" } });
+
+  // Custom asset input should appear
+  const customInput = await screen.findByPlaceholderText("Ví dụ: HPG, TCB, VCB, VCG...");
+  expect(customInput).toBeInTheDocument();
+
+  // Type a custom asset name
+  fireEvent.change(customInput, { target: { value: "HPG" } });
+  expect(customInput.value).toBe("HPG");
+});
+
+test("should successfully add a custom asset transaction", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  } else {
+    const mockStorage = {};
+    global.localStorage = {
+      getItem: (key) => mockStorage[key] || null,
+      setItem: (key, val) => { mockStorage[key] = String(val); },
+      clear: () => { for (const k in mockStorage) delete mockStorage[k]; }
+    };
+    global.window.localStorage = global.localStorage;
+  }
+
+  render(<App />);
+
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  // 1. Change selection to Custom
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "Custom" } });
+
+  // 2. Type custom asset symbol
+  const customInput = await screen.findByPlaceholderText("Ví dụ: HPG, TCB, VCB, VCG...");
+  fireEvent.change(customInput, { target: { value: "HPG" } });
+
+  // 3. Fill quantity
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "10" } });
+
+  // 4. Fill price
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "26000" } });
+
+  // 5. Submit form
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  // 6. Verify success message appears
+  const successMsg = await screen.findByText(/Đã ghi nhận giao dịch/i);
+  expect(successMsg).toBeInTheDocument();
+});
+
+test("should allow configuring Settings and using Backup/Restore drawer without crashing", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  } else {
+    const mockStorage = {};
+    global.localStorage = {
+      getItem: (key) => mockStorage[key] || null,
+      setItem: (key, val) => { mockStorage[key] = String(val); },
+      clear: () => { for (const k in mockStorage) delete mockStorage[k]; }
+    };
+    global.window.localStorage = global.localStorage;
+  }
+
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  // 1. Toggle Settings drawer
+  const settingsBtn = screen.getByRole("button", { name: /⚙️ Cài đặt API/i });
+  fireEvent.click(settingsBtn);
+
+  // 2. Locate Settings elements
+  const apiKeyInput = await screen.findByLabelText("Gemini API Key (lưu trữ local bảo mật)", { exact: false });
+  const proxyUrlInput = await screen.findByLabelText("Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)", { exact: false });
+
+  fireEvent.change(apiKeyInput, { target: { value: "test-api-key" } });
+  fireEvent.change(proxyUrlInput, { target: { value: "http://localhost:8080" } });
+
+  const saveSettingsBtn = screen.getByRole("button", { name: /Lưu Cấu Hình/i });
+  fireEvent.click(saveSettingsBtn);
+
+  // 3. Toggle Backup drawer
+  const backupBtn = screen.getByRole("button", { name: /Sao lưu \/ Khôi phục/i });
+  fireEvent.click(backupBtn);
+
+  // 4. Locate Backup elements
+  const exportTextarea = await screen.findByLabelText("Dữ liệu sao lưu hiện tại (JSON)", { exact: false });
+  const importTextarea = await screen.findByLabelText("Dán dữ liệu sao lưu để khôi phục", { exact: false });
+  expect(exportTextarea).toBeInTheDocument();
+  expect(importTextarea).toBeInTheDocument();
+
+  // Trigger export
+  const exportBtn = screen.getByRole("button", { name: /Xuất sao lưu & Sao chép/i });
+  fireEvent.click(exportBtn);
+
+  // Trigger import
+  fireEvent.change(importTextarea, { target: { value: "[]" } });
+  const importBtn = screen.getByRole("button", { name: /Khôi phục từ bản dán/i });
+  fireEvent.click(importBtn);
+});
+
+test("should show correct warnings and auto calculate fees/taxes", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  } else {
+    const mockStorage = {};
+    global.localStorage = {
+      getItem: (key) => mockStorage[key] || null,
+      setItem: (key, val) => { mockStorage[key] = String(val); },
+      clear: () => { for (const k in mockStorage) delete mockStorage[k]; }
+    };
+    global.window.localStorage = global.localStorage;
+  }
+
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  // 1. Select Gold
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "Gold" } });
+
+  // 2. Verify fee/tax calculations
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "2" } });
+
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "83000000" } });
+
+  const feeInput = await screen.findByLabelText("Phí giao dịch (VND) - mặc định 0.15%", { exact: false });
+  // fee = 2 * 83000000 * 0.0015 = 249000
+  expect(feeInput.value).toBe("249000");
+
+  // Select Sell
+  const actionSelect = await screen.findByLabelText("Hành động", { exact: false });
+  fireEvent.change(actionSelect, { target: { value: "Sell" } });
+
+  const taxInput = await screen.findByLabelText("Thuế bán (VND) - mặc định 0.1%", { exact: false });
+  // tax = 2 * 83000000 * 0.001 = 166000
+  expect(taxInput.value).toBe("166000");
+});
+
+test("should show error when quantity is <= 0 or invalid", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "VN30" } });
+
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "-5" } });
+
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "21000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const errorMsg = await screen.findByText("Số lượng giao dịch phải lớn hơn 0");
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should show error when price is <= 0 or invalid for non-savings assets", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "VN30" } });
+
+  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "10" } });
+
+  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  fireEvent.change(priceInput, { target: { value: "-2000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const errorMsg = await screen.findByText("Giá giao dịch phải lớn hơn 0");
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should default price to 1.0 for Savings asset", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  fireEvent.change(selectElement, { target: { value: "Savings" } });
+
+  const qtyInput = await screen.findByLabelText("Số tiền nạp/rút (VND)", { exact: false });
+  fireEvent.change(qtyInput, { target: { value: "5000000" } });
+
+  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  fireEvent.click(submitButton);
+
+  const successMsg = await screen.findByText(/Đã ghi nhận giao dịch Tiết kiệm thành công!/i);
+  expect(successMsg).toBeInTheDocument();
+});
+
+test("should show error on invalid JSON backup restore", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const backupBtn = screen.getByRole("button", { name: /Sao lưu \/ Khôi phục/i });
+  fireEvent.click(backupBtn);
+
+  const importTextarea = await screen.findByLabelText("Dán dữ liệu sao lưu để khôi phục", { exact: false });
+  fireEvent.change(importTextarea, { target: { value: "invalid-json-content" } });
+
+  const importBtn = screen.getByRole("button", { name: /Khôi phục từ bản dán/i });
+  fireEvent.click(importBtn);
+
+  const errorMsg = await screen.findByText(/Lỗi phân tích cú pháp JSON hoặc định dạng bản sao lưu không hợp lệ/i);
+  expect(errorMsg).toBeInTheDocument();
+});
+
+test("should allow deleting a transaction", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  const originalConfirm = window.confirm;
+  window.confirm = () => true;
+
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  const deleteButtons = await screen.findAllByRole("button", { name: /Xóa/i });
+  expect(deleteButtons.length).toBeGreaterThan(0);
+
+  fireEvent.click(deleteButtons[0]);
+
+  const successMsg = await screen.findByText(/Đã xóa giao dịch thành công!/i);
+  expect(successMsg).toBeInTheDocument();
+
+  window.confirm = originalConfirm;
+});
+

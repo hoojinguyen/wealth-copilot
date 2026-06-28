@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use crate::errors::AppError;
 
@@ -15,6 +15,9 @@ pub struct AssetPriceRecord {
 pub struct PortfolioItem {
     pub asset: String,
     pub quantity: f64,
+    pub asset_type: String, // "Liquid" or "Static"
+    pub purchase_price: f64,
+    pub realized_pnl: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -24,6 +27,16 @@ pub struct TransactionLog {
     pub action_type: String, // Buy, Sell, Deposit, Withdraw
     pub quantity: f64,
     pub price: f64,
+    pub date: String,
+    pub fee: Option<f64>,
+    pub tax: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DraftItem {
+    pub asset: String,
+    pub quantity: f64,
+    pub purchase_price: f64,
     pub date: String,
 }
 
@@ -38,6 +51,20 @@ pub struct PortfolioState {
 pub struct VersionedBackup {
     pub version: i32,
     pub data: PortfolioState,
+}
+
+pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, AppError> {
+    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1;")?;
+    let val: Option<String> = stmt.query_row([key], |row| row.get(0)).optional()?;
+    Ok(val)
+}
+
+pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2);",
+        params![key, value],
+    )?;
+    Ok(())
 }
 
 pub fn init_db(conn: &Connection) -> Result<(), AppError> {
@@ -76,12 +103,66 @@ pub fn init_db(conn: &Connection) -> Result<(), AppError> {
         [],
     )?;
 
+    // Safe migration: Add asset_type, purchase_price, realized_pnl to user_portfolio if they do not exist
+    let mut stmt = conn.prepare("PRAGMA table_info(user_portfolio);")?;
+    let user_portfolio_cols: std::collections::HashSet<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<_, _>>()?;
+
+    if !user_portfolio_cols.contains("asset_type") {
+        conn.execute("ALTER TABLE user_portfolio ADD COLUMN asset_type TEXT DEFAULT 'Liquid';", [])?;
+    }
+    if !user_portfolio_cols.contains("purchase_price") {
+        conn.execute("ALTER TABLE user_portfolio ADD COLUMN purchase_price REAL DEFAULT 0.0;", [])?;
+    }
+    if !user_portfolio_cols.contains("realized_pnl") {
+        conn.execute("ALTER TABLE user_portfolio ADD COLUMN realized_pnl REAL DEFAULT 0.0;", [])?;
+    }
+
+    // Safe migration: Add fee, tax to transaction_logs if they do not exist
+    let mut stmt = conn.prepare("PRAGMA table_info(transaction_logs);")?;
+    let transaction_logs_cols: std::collections::HashSet<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<_, _>>()?;
+
+    if !transaction_logs_cols.contains("fee") {
+        conn.execute("ALTER TABLE transaction_logs ADD COLUMN fee REAL DEFAULT 0.0;", [])?;
+    }
+    if !transaction_logs_cols.contains("tax") {
+        conn.execute("ALTER TABLE transaction_logs ADD COLUMN tax REAL DEFAULT 0.0;", [])?;
+    }
+
+    // Create settings table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );",
+        [],
+    )?;
+
+    // Create macro_indicators table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS macro_indicators (
+            key TEXT PRIMARY KEY,
+            value REAL NOT NULL,
+            description TEXT,
+            updated_at TEXT NOT NULL
+        );",
+        [],
+    )?;
+
     // Ensure default portfolio entries exist
-    let default_assets = ["Savings", "Gold", "VN30", "Diamond"];
-    for asset in default_assets {
+    let default_assets = [
+        ("Savings", "Liquid"),
+        ("Gold", "Liquid"),
+        ("VN30", "Liquid"),
+        ("Diamond", "Liquid"),
+    ];
+    for (asset, atype) in default_assets {
         conn.execute(
-            "INSERT OR IGNORE INTO user_portfolio (asset, quantity) VALUES (?1, 0.0);",
-            [asset],
+            "INSERT OR IGNORE INTO user_portfolio (asset, quantity, asset_type, purchase_price, realized_pnl) VALUES (?1, 0.0, ?2, 0.0, 0.0);",
+            params![asset, atype],
         )?;
     }
 
@@ -115,12 +196,15 @@ pub fn seed_if_empty(conn: &mut Connection) -> Result<(), AppError> {
 
 pub fn get_portfolio_state(conn: &Connection) -> Result<PortfolioState, AppError> {
     // 1. Fetch user portfolio
-    let mut stmt = conn.prepare("SELECT asset, quantity FROM user_portfolio;")?;
+    let mut stmt = conn.prepare("SELECT asset, quantity, asset_type, purchase_price, realized_pnl FROM user_portfolio;")?;
     let portfolio = stmt
         .query_map([], |row| {
             Ok(PortfolioItem {
                 asset: row.get(0)?,
                 quantity: row.get(1)?,
+                asset_type: row.get(2)?,
+                purchase_price: row.get(3)?,
+                realized_pnl: row.get(4)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -139,7 +223,7 @@ pub fn get_portfolio_state(conn: &Connection) -> Result<PortfolioState, AppError
 
     // 3. Fetch transaction logs
     let mut stmt = conn.prepare(
-        "SELECT id, asset, action_type, quantity, price, date FROM transaction_logs ORDER BY date DESC, id DESC;",
+        "SELECT id, asset, action_type, quantity, price, date, fee, tax FROM transaction_logs ORDER BY date DESC, id DESC;",
     )?;
     let transactions = stmt
         .query_map([], |row| {
@@ -150,6 +234,8 @@ pub fn get_portfolio_state(conn: &Connection) -> Result<PortfolioState, AppError
                 quantity: row.get(3)?,
                 price: row.get(4)?,
                 date: row.get(5)?,
+                fee: row.get(6)?,
+                tax: row.get(7)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -159,6 +245,177 @@ pub fn get_portfolio_state(conn: &Connection) -> Result<PortfolioState, AppError
         prices,
         transactions,
     })
+}
+
+fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppError> {
+    // 1. Read existing user_portfolio state to preserve asset types and items with no transaction logs
+    let mut stmt = tx.prepare("SELECT asset, quantity, asset_type, purchase_price, realized_pnl FROM user_portfolio;")?;
+    let mut preserved_items = std::collections::HashMap::new();
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let asset: String = row.get(0)?;
+        let qty: f64 = row.get(1)?;
+        let atype: String = row.get(2)?;
+        let price: f64 = row.get(3)?;
+        let pnl: f64 = row.get(4)?;
+        preserved_items.insert(asset, (qty, atype, price, pnl));
+    }
+
+    // 2. Identify all assets that have entries in transaction_logs
+    let mut stmt = tx.prepare("SELECT DISTINCT asset FROM transaction_logs;")?;
+    let mut assets_with_logs = std::collections::HashSet::new();
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let asset: String = row.get(0)?;
+        assets_with_logs.insert(asset);
+    }
+
+    // 3. Clear user_portfolio
+    tx.execute("DELETE FROM user_portfolio;", [])?;
+
+    // 4. Define state map and populate
+    struct AssetState {
+        quantity: f64,
+        purchase_price: f64,
+        realized_pnl: f64,
+        asset_type: String,
+    }
+
+    let mut states: std::collections::HashMap<String, AssetState> = std::collections::HashMap::new();
+
+    // Copy preserved items into states. If they have logs, reset their figures. Otherwise preserve them exactly.
+    for (asset, (qty, atype, price, pnl)) in &preserved_items {
+        if assets_with_logs.contains(asset) {
+            states.insert(
+                asset.clone(),
+                AssetState {
+                    quantity: 0.0,
+                    purchase_price: 0.0,
+                    realized_pnl: 0.0,
+                    asset_type: atype.clone(),
+                },
+            );
+        } else {
+            states.insert(
+                asset.clone(),
+                AssetState {
+                    quantity: *qty,
+                    purchase_price: *price,
+                    realized_pnl: *pnl,
+                    asset_type: atype.clone(),
+                },
+            );
+        }
+    }
+
+    // Ensure default assets are always initialized in states map
+    let default_assets = [
+        ("Savings", "Liquid"),
+        ("Gold", "Liquid"),
+        ("VN30", "Liquid"),
+        ("Diamond", "Liquid"),
+    ];
+    for (asset, atype) in default_assets {
+        states.entry(asset.to_string()).or_insert_with(|| {
+            let final_type = preserved_items.get(asset)
+                .map(|(_, t, _, _)| t.clone())
+                .unwrap_or_else(|| atype.to_string());
+            AssetState {
+                quantity: 0.0,
+                purchase_price: 0.0,
+                realized_pnl: 0.0,
+                asset_type: final_type,
+            }
+        });
+    }
+
+    // 5. Retrieve all transaction logs chronologically and compute updates
+    let mut stmt = tx.prepare(
+        "SELECT asset, action_type, quantity, price, fee, tax FROM transaction_logs ORDER BY date ASC, id ASC;"
+    )?;
+    let mut rows = stmt.query([])?;
+
+    while let Some(row) = rows.next()? {
+        let asset: String = row.get(0)?;
+        let action_type: String = row.get(1)?;
+        let quantity: f64 = row.get(2)?;
+        let price: f64 = row.get(3)?;
+        let fee: f64 = row.get::<_, Option<f64>>(4)?.unwrap_or(0.0);
+        let tax: f64 = row.get::<_, Option<f64>>(5)?.unwrap_or(0.0);
+
+        // Find or create asset state (for new logs of non-preserved assets)
+        let state = states.entry(asset.clone()).or_insert_with(|| {
+            let lower_name = asset.to_lowercase();
+            let atype = if lower_name.contains("bất đồng sản")
+                || lower_name.contains("bất động sản")
+                || lower_name.contains("nhà đất")
+                || lower_name.contains("đất")
+                || lower_name.contains("static")
+            {
+                "Static".to_string()
+            } else {
+                "Liquid".to_string()
+            };
+            AssetState {
+                quantity: 0.0,
+                purchase_price: 0.0,
+                realized_pnl: 0.0,
+                asset_type: atype,
+            }
+        });
+
+        match action_type.as_str() {
+            "Buy" | "Deposit" => {
+                let old_qty = state.quantity;
+                let old_price = state.purchase_price;
+                state.quantity += quantity;
+                
+                if state.quantity > 0.0 {
+                    if asset == "Savings" {
+                        state.purchase_price = 1.0;
+                    } else {
+                        state.purchase_price = ((old_qty * old_price) + (quantity * price) + fee) / state.quantity;
+                    }
+                } else {
+                    state.purchase_price = 0.0;
+                }
+            }
+            "Sell" | "Withdraw" => {
+                let old_qty = state.quantity;
+                let old_price = state.purchase_price;
+                let qty_sold = quantity.min(old_qty);
+                
+                state.quantity = (old_qty - quantity).max(0.0);
+                
+                if asset != "Savings" && old_qty > 0.0 {
+                    let pnl = qty_sold * (price - old_price) - fee - tax;
+                    state.realized_pnl += pnl;
+                }
+                
+                if state.quantity == 0.0 {
+                    state.purchase_price = 0.0;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // 6. Save all states back to user_portfolio
+    let mut stmt = tx.prepare(
+        "INSERT INTO user_portfolio (asset, quantity, asset_type, purchase_price, realized_pnl)
+         VALUES (?1, ?2, ?3, ?4, ?5);"
+    )?;
+    for (asset, state) in states {
+        stmt.execute(params![
+            asset,
+            state.quantity,
+            state.asset_type,
+            state.purchase_price,
+            state.realized_pnl
+        ])?;
+    }
+
+    Ok(())
 }
 
 pub fn save_transaction_and_update_portfolio(
@@ -174,45 +431,37 @@ pub fn save_transaction_and_update_portfolio(
         )));
     }
 
-    // Validate asset type
-    let valid_assets = ["Savings", "Gold", "VN30", "Diamond"];
-    if !valid_assets.contains(&log.asset.as_str()) {
-        return Err(AppError::Solver(format!(
-            "Invalid asset type: {}",
-            log.asset
-        )));
-    }
-
     let tx = conn.transaction()?;
 
     // 1. Insert transaction log
     tx.execute(
-        "INSERT INTO transaction_logs (asset, action_type, quantity, price, date)
-         VALUES (?1, ?2, ?3, ?4, ?5);",
-        params![log.asset, log.action_type, log.quantity, log.price, log.date],
+        "INSERT INTO transaction_logs (asset, action_type, quantity, price, date, fee, tax)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);",
+        params![log.asset, log.action_type, log.quantity, log.price, log.date, log.fee, log.tax],
     )?;
 
-    // 2. Retrieve current quantity
-    let current_qty: f64 = tx.query_row(
-        "SELECT quantity FROM user_portfolio WHERE asset = ?1;",
-        [&log.asset],
-        |row| row.get(0),
-    ).unwrap_or(0.0);
+    // 2. Recalculate
+    recalculate_portfolio_state(&tx)?;
 
-    // 3. Calculate new quantity based on action type
-    let delta = match log.action_type.as_str() {
-        "Buy" | "Deposit" => log.quantity,
-        "Sell" | "Withdraw" => -log.quantity,
-        _ => 0.0,
-    };
+    tx.commit()?;
+    Ok(())
+}
 
-    let new_qty = (current_qty + delta).max(0.0);
+pub fn import_draft_transactions(
+    conn: &mut Connection,
+    items: Vec<DraftItem>,
+) -> Result<(), AppError> {
+    let tx = conn.transaction()?;
 
-    // 4. Update user portfolio
-    tx.execute(
-        "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, ?2);",
-        params![log.asset, new_qty],
-    )?;
+    for item in items {
+        tx.execute(
+            "INSERT INTO transaction_logs (asset, action_type, quantity, price, date, fee, tax)
+             VALUES (?1, 'Buy', ?2, ?3, ?4, 0.0, 0.0);",
+            params![item.asset, item.quantity, item.purchase_price, item.date],
+        )?;
+    }
+
+    recalculate_portfolio_state(&tx)?;
 
     tx.commit()?;
     Ok(())
@@ -241,20 +490,13 @@ pub fn import_backup_json(conn: &mut Connection, backup_json: &str) -> Result<()
 
     let state = backup.data;
 
-    // Validate backup data business rules before writing
-    let valid_assets = ["Savings", "Gold", "VN30", "Diamond"];
+    // Validate backup data business rules before writing (relaxed validator - D6)
     for item in &state.portfolio {
-        if !valid_assets.contains(&item.asset.as_str()) {
-            return Err(AppError::InvalidBackup(format!("Invalid asset in backup: {}", item.asset)));
-        }
         if item.quantity < 0.0 {
             return Err(AppError::InvalidBackup(format!("Negative quantity for asset: {}", item.asset)));
         }
     }
     for tx_log in &state.transactions {
-        if !valid_assets.contains(&tx_log.asset.as_str()) {
-            return Err(AppError::InvalidBackup(format!("Invalid asset in transaction log: {}", tx_log.asset)));
-        }
         if tx_log.quantity < 0.0 || tx_log.price < 0.0 {
             return Err(AppError::InvalidBackup("Negative quantity or price in transaction log".to_string()));
         }
@@ -270,8 +512,8 @@ pub fn import_backup_json(conn: &mut Connection, backup_json: &str) -> Result<()
     // Restore user portfolio
     for item in state.portfolio {
         tx.execute(
-            "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, ?2);",
-            params![item.asset, item.quantity],
+            "INSERT OR REPLACE INTO user_portfolio (asset, quantity, asset_type, purchase_price, realized_pnl) VALUES (?1, ?2, ?3, ?4, ?5);",
+            params![item.asset, item.quantity, item.asset_type, item.purchase_price, item.realized_pnl],
         )?;
     }
 
@@ -286,9 +528,9 @@ pub fn import_backup_json(conn: &mut Connection, backup_json: &str) -> Result<()
     // Restore transaction logs
     for log in state.transactions {
         tx.execute(
-            "INSERT INTO transaction_logs (id, asset, action_type, quantity, price, date)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6);",
-            params![log.id, log.asset, log.action_type, log.quantity, log.price, log.date],
+            "INSERT INTO transaction_logs (id, asset, action_type, quantity, price, date, fee, tax)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);",
+            params![log.id, log.asset, log.action_type, log.quantity, log.price, log.date, log.fee, log.tax],
         )?;
     }
 
@@ -302,52 +544,26 @@ pub fn delete_transaction_and_recalculate_portfolio(
 ) -> Result<(), AppError> {
     let tx = conn.transaction()?;
 
-    // 1. Delete transaction log
+    // 1. Get the asset name of the transaction we are about to delete
+    let mut stmt = tx.prepare("SELECT asset FROM transaction_logs WHERE id = ?1;")?;
+    let asset: Option<String> = stmt.query_row([id], |row| row.get(0)).optional()?;
+    drop(stmt);
+
+    // 2. Delete transaction log
     tx.execute("DELETE FROM transaction_logs WHERE id = ?1;", [id])?;
 
-    // 2. Reset all default assets to 0.0
-    let default_assets = ["Savings", "Gold", "VN30", "Diamond"];
-    for asset in default_assets {
-        tx.execute(
-            "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, 0.0);",
-            params![asset],
-        )?;
-    }
-
-    // 3. Select all remaining transaction logs chronologically
-    let mut quantities = std::collections::HashMap::new();
-    for asset in &default_assets {
-        quantities.insert(asset.to_string(), 0.0);
-    }
-
-    {
-        let mut stmt = tx.prepare("SELECT asset, action_type, quantity FROM transaction_logs ORDER BY date ASC, id ASC;")?;
-        let mut rows = stmt.query([])?;
-
-        while let Some(row) = rows.next()? {
-            let asset: String = row.get(0)?;
-            let action_type: String = row.get(1)?;
-            let quantity: f64 = row.get(2)?;
-
-            let delta = match action_type.as_str() {
-                "Buy" | "Deposit" => quantity,
-                "Sell" | "Withdraw" => -quantity,
-                _ => 0.0,
-            };
-
-            if let Some(qty) = quantities.get_mut(&asset) {
-                *qty = (*qty + delta).max(0.0);
-            }
+    // 3. If there are no logs left for this asset, delete it from user_portfolio so it won't be preserved
+    if let Some(asset_name) = asset {
+        let mut check_stmt = tx.prepare("SELECT COUNT(*) FROM transaction_logs WHERE asset = ?1;")?;
+        let count: i64 = check_stmt.query_row([&asset_name], |row| row.get(0))?;
+        drop(check_stmt);
+        if count == 0 {
+            tx.execute("DELETE FROM user_portfolio WHERE asset = ?1;", [&asset_name])?;
         }
     }
 
-    // 5. Save recalculated quantities to user_portfolio
-    for (asset, qty) in quantities {
-        tx.execute(
-            "INSERT OR REPLACE INTO user_portfolio (asset, quantity) VALUES (?1, ?2);",
-            params![asset, qty],
-        )?;
-    }
+    // 4. Recalculate
+    recalculate_portfolio_state(&tx)?;
 
     tx.commit()?;
     Ok(())
@@ -371,6 +587,8 @@ mod tests {
             quantity: 1000.0,
             price: 1.0,
             date: "2026-06-25".to_string(),
+            fee: None,
+            tax: None,
         };
         save_transaction_and_update_portfolio(&mut conn, log1).unwrap();
 
@@ -382,6 +600,8 @@ mod tests {
             quantity: 500.0,
             price: 1.0,
             date: "2026-06-26".to_string(),
+            fee: None,
+            tax: None,
         };
         save_transaction_and_update_portfolio(&mut conn, log2).unwrap();
 
@@ -414,6 +634,8 @@ mod tests {
             quantity: 5.0,
             price: 100.0,
             date: "2026-06-26".to_string(),
+            fee: None,
+            tax: None,
         };
         save_transaction_and_update_portfolio(&mut conn, log).unwrap();
         

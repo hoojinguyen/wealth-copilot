@@ -897,7 +897,7 @@ function App() {
         <div className="alert alert-warning-sync">
           <span className="alert-title">{t("syncWarningTitle")}</span>
           <span className="alert-content">
-            {t("syncWarningContent", { date: latestPriceDate || "unknown", days: "5" })}
+            {t("syncWarningContent", { date: latestPriceDate || "unknown", days: latestPriceDate ? String(Math.ceil(Math.abs(new Date() - new Date(latestPriceDate)) / (1000 * 60 * 60 * 24))) : "unknown" })}
           </span>
         </div>
       )}

@@ -149,6 +149,22 @@ fn import_draft_transactions(
     state: tauri::State<'_, AppState>,
     items: Vec<db::DraftItem>,
 ) -> Result<(), AppError> {
+    // Validate each draft item before database insertion
+    for item in &items {
+        if item.asset.trim().is_empty() {
+            return Err(AppError::Solver("Asset symbol is required".to_string()));
+        }
+        if item.quantity <= 0.0 || !item.quantity.is_finite() {
+            return Err(AppError::Solver("Quantity must be a positive finite number".to_string()));
+        }
+        if item.purchase_price <= 0.0 || !item.purchase_price.is_finite() {
+            return Err(AppError::Solver("Price must be a positive finite number".to_string()));
+        }
+        if item.date.trim().is_empty() {
+            return Err(AppError::Solver("Transaction date is required".to_string()));
+        }
+    }
+
     let mut conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
     db::import_draft_transactions(&mut conn, items)?;
 

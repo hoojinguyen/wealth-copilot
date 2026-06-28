@@ -264,16 +264,42 @@ async function browserMockInvoke(cmd, args) {
 
   if (cmd === "delete_transaction") {
     const { id } = args;
+    const deletedTx = data.transactions.find(t => t.id === id);
     const remainingTransactions = data.transactions.filter(t => t.id !== id);
     localStorage.setItem("eb_transactions", JSON.stringify(remainingTransactions));
 
-    const updatedPortfolio = recalculateLocalPortfolio(remainingTransactions, data.portfolio);
+    let portfolio = data.portfolio;
+    if (deletedTx) {
+      const assetHasLogs = remainingTransactions.some(t => t.asset === deletedTx.asset);
+      if (!assetHasLogs) {
+        portfolio = portfolio.filter(item => item.asset !== deletedTx.asset);
+      }
+    }
+
+    const updatedPortfolio = recalculateLocalPortfolio(remainingTransactions, portfolio);
     localStorage.setItem("eb_portfolio", JSON.stringify(updatedPortfolio));
     return;
   }
 
   if (cmd === "import_draft_transactions") {
     const { items } = args;
+    
+    // Validate each draft item before importing
+    for (const item of items) {
+      if (!item.asset || !item.asset.trim()) {
+        throw new Error("Asset symbol is required");
+      }
+      if (item.quantity <= 0 || !isFinite(item.quantity)) {
+        throw new Error("Quantity must be a positive finite number");
+      }
+      if (item.purchase_price <= 0 || !isFinite(item.purchase_price)) {
+        throw new Error("Price must be a positive finite number");
+      }
+      if (!item.date || !item.date.trim()) {
+        throw new Error("Transaction date is required");
+      }
+    }
+
     let transactions = JSON.parse(localStorage.getItem("eb_transactions") || "[]");
     let nextId = transactions.length > 0 ? Math.max(...transactions.map(t => t.id || 0)) + 1 : 1;
 

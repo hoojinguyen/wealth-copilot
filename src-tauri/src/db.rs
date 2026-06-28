@@ -544,10 +544,25 @@ pub fn delete_transaction_and_recalculate_portfolio(
 ) -> Result<(), AppError> {
     let tx = conn.transaction()?;
 
-    // 1. Delete transaction log
+    // 1. Get the asset name of the transaction we are about to delete
+    let mut stmt = tx.prepare("SELECT asset FROM transaction_logs WHERE id = ?1;")?;
+    let asset: Option<String> = stmt.query_row([id], |row| row.get(0)).optional()?;
+    drop(stmt);
+
+    // 2. Delete transaction log
     tx.execute("DELETE FROM transaction_logs WHERE id = ?1;", [id])?;
 
-    // 2. Recalculate
+    // 3. If there are no logs left for this asset, delete it from user_portfolio so it won't be preserved
+    if let Some(asset_name) = asset {
+        let mut check_stmt = tx.prepare("SELECT COUNT(*) FROM transaction_logs WHERE asset = ?1;")?;
+        let count: i64 = check_stmt.query_row([&asset_name], |row| row.get(0))?;
+        drop(check_stmt);
+        if count == 0 {
+            tx.execute("DELETE FROM user_portfolio WHERE asset = ?1;", [&asset_name])?;
+        }
+    }
+
+    // 4. Recalculate
     recalculate_portfolio_state(&tx)?;
 
     tx.commit()?;

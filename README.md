@@ -18,7 +18,7 @@ Smart personal asset allocation and rebalancing advisor tailored for Vietnam. A 
 
 ## 🚀 Development Guide
 
-See [CLAUDE.md](file:///Users/hoojinguyen/Documents/antigravity/eager-bell/CLAUDE.md) for more details.
+See [CLAUDE.md](CLAUDE.md) for more details.
 
 ### System Requirements
 - **Node.js** (Version 20 or higher)

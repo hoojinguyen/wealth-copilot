@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Hỗ trợ nhập và lưu trữ mã tài sản tùy chỉnh bất kỳ ở Việt Nam thông qua select box "Khác" trong biểu mẫu ghi nhận giao dịch.
 - Tích hợp động cơ tối ưu hóa phân bổ tỷ trọng Clarabel QP Solver backend Rust, tự động dựng ma trận ràng buộc và vector tối ưu hóa theo danh mục thực tế của người dùng.
-- Bổ sinh tính năng điền giá gần nhất (Forward-Fill) khi dựng ma trận covariance để giải quyết sự lệch pha về ngày giao dịch giữa các sàn chứng khoán.
+- Bổ sung tính năng điền giá gần nhất (Forward-Fill) khi dựng ma trận covariance để giải quyết sự lệch pha về ngày giao dịch giữa các sàn chứng khoán.
 - Hỗ trợ bóc tách ảnh chụp màn hình sàn giao dịch (như TCBS) bằng Gemini Vision và tích hợp bảng duyệt nháp kiểm duyệt trước khi lưu vào SQLite.
 - Thêm cài đặt lưu trữ Gemini API Key cá nhân và Custom Proxy/Endpoint cục bộ để tránh bị chặn kết nối tại Việt Nam.
 - Tự động băm tên tài sản tùy chỉnh sang dải màu sắc HSL hài hòa hiển thị trên biểu đồ phân bổ hình tròn.

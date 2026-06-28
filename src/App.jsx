@@ -284,26 +284,25 @@ function App() {
 
     try {
       setIsLoading(true);
+      
+      // Sync Yahoo Finance data first
       for (const item of draftItems) {
-        // Sync Yahoo Finance data first
         try {
           await invoke("fetch_historical_prices", { symbol: item.asset });
         } catch (e) {
           console.warn(`Không tải được giá lịch sử cho ${item.asset}: ${e}`);
         }
-
-        const log = {
-          id: null,
-          asset: item.asset,
-          action_type: "Buy",
-          quantity: item.quantity,
-          price: item.purchase_price,
-          date: new Date().toISOString().split("T")[0],
-          fee: 0.0,
-          tax: 0.0
-        };
-        await invoke("save_transaction", { log });
       }
+
+      const date = new Date().toISOString().split("T")[0];
+      const itemsToImport = draftItems.map(item => ({
+        asset: item.asset,
+        quantity: item.quantity,
+        purchase_price: item.purchase_price,
+        date
+      }));
+
+      await invoke("import_draft_transactions", { items: itemsToImport });
 
       setSuccessMsg("Đã thêm toàn bộ danh mục từ bảng duyệt nháp vào SQLite thành công!");
       setDraftItems([]);
@@ -716,6 +715,7 @@ function App() {
                           <th>Mã</th>
                           <th className="num-col">SL</th>
                           <th className="num-col">Giá vốn</th>
+                          <th style={{ width: "60px", textAlign: "center" }}>Hành động</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -744,6 +744,15 @@ function App() {
                                 value={item.purchase_price || ""} 
                                 onChange={(e) => handleUpdateDraftItem(idx, "purchase_price", e.target.value)} 
                               />
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <button 
+                                className="btn btn-secondary btn-xs" 
+                                style={{ padding: "2px 6px", fontSize: "11px", backgroundColor: "#dc3545", color: "white", border: "none" }}
+                                onClick={() => handleDeleteDraftItem(idx)}
+                              >
+                                Xóa
+                              </button>
                             </td>
                           </tr>
                         ))}

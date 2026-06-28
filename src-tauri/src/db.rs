@@ -33,6 +33,14 @@ pub struct TransactionLog {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DraftItem {
+    pub asset: String,
+    pub quantity: f64,
+    pub purchase_price: f64,
+    pub date: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PortfolioState {
     pub portfolio: Vec<PortfolioItem>,
     pub prices: Vec<AssetPriceRecord>,
@@ -240,20 +248,32 @@ pub fn get_portfolio_state(conn: &Connection) -> Result<PortfolioState, AppError
 }
 
 fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppError> {
-    // 1. Read existing asset types from user_portfolio to preserve them
-    let mut stmt = tx.prepare("SELECT asset, asset_type FROM user_portfolio;")?;
-    let mut preserved_types = std::collections::HashMap::new();
+    // 1. Read existing user_portfolio state to preserve asset types and items with no transaction logs
+    let mut stmt = tx.prepare("SELECT asset, quantity, asset_type, purchase_price, realized_pnl FROM user_portfolio;")?;
+    let mut preserved_items = std::collections::HashMap::new();
     let mut rows = stmt.query([])?;
     while let Some(row) = rows.next()? {
         let asset: String = row.get(0)?;
-        let atype: String = row.get(1)?;
-        preserved_types.insert(asset, atype);
+        let qty: f64 = row.get(1)?;
+        let atype: String = row.get(2)?;
+        let price: f64 = row.get(3)?;
+        let pnl: f64 = row.get(4)?;
+        preserved_items.insert(asset, (qty, atype, price, pnl));
     }
 
-    // 2. Clear user_portfolio
+    // 2. Identify all assets that have entries in transaction_logs
+    let mut stmt = tx.prepare("SELECT DISTINCT asset FROM transaction_logs;")?;
+    let mut assets_with_logs = std::collections::HashSet::new();
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let asset: String = row.get(0)?;
+        assets_with_logs.insert(asset);
+    }
+
+    // 3. Clear user_portfolio
     tx.execute("DELETE FROM user_portfolio;", [])?;
 
-    // 3. Define state map
+    // 4. Define state map and populate
     struct AssetState {
         quantity: f64,
         purchase_price: f64,
@@ -263,7 +283,32 @@ fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppErro
 
     let mut states: std::collections::HashMap<String, AssetState> = std::collections::HashMap::new();
 
-    // Initialize default assets
+    // Copy preserved items into states. If they have logs, reset their figures. Otherwise preserve them exactly.
+    for (asset, (qty, atype, price, pnl)) in &preserved_items {
+        if assets_with_logs.contains(asset) {
+            states.insert(
+                asset.clone(),
+                AssetState {
+                    quantity: 0.0,
+                    purchase_price: 0.0,
+                    realized_pnl: 0.0,
+                    asset_type: atype.clone(),
+                },
+            );
+        } else {
+            states.insert(
+                asset.clone(),
+                AssetState {
+                    quantity: *qty,
+                    purchase_price: *price,
+                    realized_pnl: *pnl,
+                    asset_type: atype.clone(),
+                },
+            );
+        }
+    }
+
+    // Ensure default assets are always initialized in states map
     let default_assets = [
         ("Savings", "Liquid"),
         ("Gold", "Liquid"),
@@ -271,18 +316,20 @@ fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppErro
         ("Diamond", "Liquid"),
     ];
     for (asset, atype) in default_assets {
-        states.insert(
-            asset.to_string(),
+        states.entry(asset.to_string()).or_insert_with(|| {
+            let final_type = preserved_items.get(asset)
+                .map(|(_, t, _, _)| t.clone())
+                .unwrap_or_else(|| atype.to_string());
             AssetState {
                 quantity: 0.0,
                 purchase_price: 0.0,
                 realized_pnl: 0.0,
-                asset_type: atype.to_string(),
-            },
-        );
+                asset_type: final_type,
+            }
+        });
     }
 
-    // 4. Retrieve all transaction logs chronologically
+    // 5. Retrieve all transaction logs chronologically and compute updates
     let mut stmt = tx.prepare(
         "SELECT asset, action_type, quantity, price, fee, tax FROM transaction_logs ORDER BY date ASC, id ASC;"
     )?;
@@ -296,22 +343,18 @@ fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppErro
         let fee: f64 = row.get::<_, Option<f64>>(4)?.unwrap_or(0.0);
         let tax: f64 = row.get::<_, Option<f64>>(5)?.unwrap_or(0.0);
 
-        // Find or create asset state
+        // Find or create asset state (for new logs of non-preserved assets)
         let state = states.entry(asset.clone()).or_insert_with(|| {
-            let atype = if let Some(t) = preserved_types.get(&asset) {
-                t.clone()
+            let lower_name = asset.to_lowercase();
+            let atype = if lower_name.contains("bất đồng sản")
+                || lower_name.contains("bất động sản")
+                || lower_name.contains("nhà đất")
+                || lower_name.contains("đất")
+                || lower_name.contains("static")
+            {
+                "Static".to_string()
             } else {
-                let lower_name = asset.to_lowercase();
-                if lower_name.contains("bất đồng sản")
-                    || lower_name.contains("bất động sản")
-                    || lower_name.contains("nhà đất")
-                    || lower_name.contains("đất")
-                    || lower_name.contains("static")
-                {
-                    "Static".to_string()
-                } else {
-                    "Liquid".to_string()
-                }
+                "Liquid".to_string()
             };
             AssetState {
                 quantity: 0.0,
@@ -357,7 +400,7 @@ fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppErro
         }
     }
 
-    // 5. Save all states back to user_portfolio
+    // 6. Save all states back to user_portfolio
     let mut stmt = tx.prepare(
         "INSERT INTO user_portfolio (asset, quantity, asset_type, purchase_price, realized_pnl)
          VALUES (?1, ?2, ?3, ?4, ?5);"
@@ -398,6 +441,26 @@ pub fn save_transaction_and_update_portfolio(
     )?;
 
     // 2. Recalculate
+    recalculate_portfolio_state(&tx)?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn import_draft_transactions(
+    conn: &mut Connection,
+    items: Vec<DraftItem>,
+) -> Result<(), AppError> {
+    let tx = conn.transaction()?;
+
+    for item in items {
+        tx.execute(
+            "INSERT INTO transaction_logs (asset, action_type, quantity, price, date, fee, tax)
+             VALUES (?1, 'Buy', ?2, ?3, ?4, 0.0, 0.0);",
+            params![item.asset, item.quantity, item.purchase_price, item.date],
+        )?;
+    }
+
     recalculate_portfolio_state(&tx)?;
 
     tx.commit()?;

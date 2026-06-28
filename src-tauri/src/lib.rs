@@ -55,10 +55,10 @@ fn run_rebalancer(
         return Err(AppError::Solver("Risk aversion lambda must be a positive finite number".to_string()));
     }
 
-    let mut cache = state.cache.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
-
     let conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
     let state_data = db::get_portfolio_state(&conn)?;
+
+    let mut cache = state.cache.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
 
     let liquid_assets: Vec<String> = state_data.portfolio.iter()
         .filter(|item| item.asset_type == "Liquid")
@@ -137,6 +137,22 @@ fn import_backup(state: tauri::State<'_, AppState>, backup_json: String) -> Resu
     db::import_backup_json(&mut conn, &backup_json)?;
 
     // Clear the cache since pricing data was reset
+    let mut cache = state.cache.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
+    cache.covariance = None;
+    cache.expected_returns = None;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn import_draft_transactions(
+    state: tauri::State<'_, AppState>,
+    items: Vec<db::DraftItem>,
+) -> Result<(), AppError> {
+    let mut conn = state.db.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
+    db::import_draft_transactions(&mut conn, items)?;
+
+    // Clear solver cache
     let mut cache = state.cache.lock().map_err(|_| AppError::Solver("Mutex lock poisoned".to_string()))?;
     cache.covariance = None;
     cache.expected_returns = None;
@@ -582,7 +598,8 @@ pub fn run() {
             parse_screenshot,
             generate_wealth_advice,
             get_user_settings,
-            save_user_settings
+            save_user_settings,
+            import_draft_transactions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

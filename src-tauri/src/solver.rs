@@ -40,13 +40,36 @@ pub fn calculate_covariance_and_returns(
     let mut dates: Vec<String> = date_map.keys().cloned().collect();
     dates.sort();
 
+    // Find the latest start date (first trading day) among all assets to prevent look-ahead bias from backward-filling
+    let mut latest_start_date = "".to_string();
+    for asset in assets {
+        let mut first_date = "".to_string();
+        for date in &dates {
+            if let Some(day_prices) = date_map.get(date) {
+                if day_prices.contains_key(asset) {
+                    first_date = date.clone();
+                    break;
+                }
+            }
+        }
+        if !first_date.is_empty() && (latest_start_date.is_empty() || first_date > latest_start_date) {
+            latest_start_date = first_date;
+        }
+    }
+
+    // Filter dates to start from the latest_start_date
+    let dates: Vec<String> = dates
+        .into_iter()
+        .filter(|d| d >= &latest_start_date)
+        .collect();
+
     if dates.is_empty() {
         return Err(AppError::EmptyDatabase);
     }
 
     if dates.len() < 3 {
         return Err(AppError::Solver(
-            "Require at least 3 dates of historical price records to calculate covariance".to_string(),
+            "Require at least 3 dates of overlapping historical price records to calculate covariance".to_string(),
         ));
     }
 

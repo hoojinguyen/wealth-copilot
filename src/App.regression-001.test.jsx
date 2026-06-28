@@ -6,7 +6,7 @@ import App from "./App";
 // Found by /qa on 2026-06-26
 // Report: .gstack/qa-reports/qa-report-localhost-1420-2026-06-26.md
 
-test("should load the application and render successfully in a browser environment", async () => {
+test("should load the application and render successfully in a browser environment (default English)", async () => {
   if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
     localStorage.clear();
   } else {
@@ -26,12 +26,42 @@ test("should load the application and render successfully in a browser environme
   expect(title).toBeInTheDocument();
 
   // Verify that the table header is loaded
-  const tableHeader = await screen.findByText("Tổng quan danh mục hiện tại");
+  const tableHeader = await screen.findByText("Portfolio Overview");
   expect(tableHeader).toBeInTheDocument();
 
-  // Verify asset items are listed
-  expect(screen.getAllByText("Tiết kiệm").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("Vàng SJC").length).toBeGreaterThan(0);
+  // Verify asset items are listed (English by default)
+  expect(screen.getAllByText("Savings").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("SJC Gold").length).toBeGreaterThan(0);
+});
+
+test("should support language toggling between English and Vietnamese", async () => {
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    localStorage.clear();
+  }
+  render(<App />);
+  const fireEvent = (await import("@testing-library/react")).fireEvent;
+
+  // 1. Initially it should show English
+  const englishHeader = await screen.findByText("Portfolio Overview");
+  expect(englishHeader).toBeInTheDocument();
+
+  // 2. Click the language toggle button to switch to Vietnamese (the button text is "🌐 VI" when current is English)
+  const toggleBtn = screen.getByText(/🌐 VI/i);
+  expect(toggleBtn).toBeInTheDocument();
+  fireEvent.click(toggleBtn);
+
+  // 3. Now it should show Vietnamese
+  const vietnameseHeader = await screen.findByText("Tổng quan danh mục hiện tại");
+  expect(vietnameseHeader).toBeInTheDocument();
+
+  // 4. Toggle back to English (the button text is "🌐 EN" when current is Vietnamese)
+  const toggleBackBtn = screen.getByText(/🌐 EN/i);
+  expect(toggleBackBtn).toBeInTheDocument();
+  fireEvent.click(toggleBackBtn);
+
+  // 5. It should show English again
+  expect(screen.queryByText("Tổng quan danh mục hiện tại")).not.toBeInTheDocument();
+  expect(screen.getByText("Portfolio Overview")).toBeInTheDocument();
 });
 
 test("should allow selecting Custom option without crashing", async () => {
@@ -50,7 +80,7 @@ test("should allow selecting Custom option without crashing", async () => {
   render(<App />);
 
   // Wait for the asset select dropdown
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   expect(selectElement).toBeInTheDocument();
 
   // Change selection to Custom
@@ -58,7 +88,7 @@ test("should allow selecting Custom option without crashing", async () => {
   fireEvent.change(selectElement, { target: { value: "Custom" } });
 
   // Custom asset input should appear
-  const customInput = await screen.findByPlaceholderText("Ví dụ: HPG, TCB, VCB, VCG...");
+  const customInput = await screen.findByPlaceholderText("e.g. HPG, TCB, VCB, VCG...");
   expect(customInput).toBeInTheDocument();
 
   // Type a custom asset name
@@ -84,27 +114,27 @@ test("should successfully add a custom asset transaction", async () => {
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
   // 1. Change selection to Custom
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   fireEvent.change(selectElement, { target: { value: "Custom" } });
 
   // 2. Type custom asset symbol
-  const customInput = await screen.findByPlaceholderText("Ví dụ: HPG, TCB, VCB, VCG...");
+  const customInput = await screen.findByPlaceholderText("e.g. HPG, TCB, VCB, VCG...");
   fireEvent.change(customInput, { target: { value: "HPG" } });
 
   // 3. Fill quantity
-  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  const qtyInput = await screen.findByLabelText("Transaction Quantity (Tael/Share)", { exact: false });
   fireEvent.change(qtyInput, { target: { value: "10" } });
 
   // 4. Fill price
-  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  const priceInput = await screen.findByLabelText("Market Price at Transaction", { exact: false });
   fireEvent.change(priceInput, { target: { value: "26000" } });
 
   // 5. Submit form
-  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  const submitButton = screen.getByRole("button", { name: /Save Transaction & Update/i });
   fireEvent.click(submitButton);
 
   // 6. Verify success message appears
-  const successMsg = await screen.findByText(/Đã ghi nhận giao dịch/i);
+  const successMsg = await screen.findByText(/Recorded transaction/i);
   expect(successMsg).toBeInTheDocument();
 });
 
@@ -125,36 +155,36 @@ test("should allow configuring Settings and using Backup/Restore drawer without 
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
   // 1. Toggle Settings drawer
-  const settingsBtn = screen.getByRole("button", { name: /⚙️ Cài đặt API/i });
+  const settingsBtn = screen.getByRole("button", { name: /⚙️ API Settings/i });
   fireEvent.click(settingsBtn);
 
   // 2. Locate Settings elements
-  const apiKeyInput = await screen.findByLabelText("Gemini API Key (lưu trữ local bảo mật)", { exact: false });
-  const proxyUrlInput = await screen.findByLabelText("Custom Proxy / Endpoint (Tùy chọn cho Việt Nam)", { exact: false });
+  const apiKeyInput = await screen.findByLabelText("Gemini API Key (secure local storage)", { exact: false });
+  const proxyUrlInput = await screen.findByLabelText("Custom Proxy / Endpoint (Optional for Vietnam)", { exact: false });
 
   fireEvent.change(apiKeyInput, { target: { value: "test-api-key" } });
   fireEvent.change(proxyUrlInput, { target: { value: "http://localhost:8080" } });
 
-  const saveSettingsBtn = screen.getByRole("button", { name: /Lưu Cấu Hình/i });
+  const saveSettingsBtn = screen.getByRole("button", { name: /Save Configuration/i });
   fireEvent.click(saveSettingsBtn);
 
   // 3. Toggle Backup drawer
-  const backupBtn = screen.getByRole("button", { name: /Sao lưu \/ Khôi phục/i });
+  const backupBtn = screen.getByRole("button", { name: /Backup \/ Restore/i });
   fireEvent.click(backupBtn);
 
   // 4. Locate Backup elements
-  const exportTextarea = await screen.findByLabelText("Dữ liệu sao lưu hiện tại (JSON)", { exact: false });
-  const importTextarea = await screen.findByLabelText("Dán dữ liệu sao lưu để khôi phục", { exact: false });
+  const exportTextarea = await screen.findByLabelText("Current Backup Data (JSON)", { exact: false });
+  const importTextarea = await screen.findByLabelText("Paste backup data to restore", { exact: false });
   expect(exportTextarea).toBeInTheDocument();
   expect(importTextarea).toBeInTheDocument();
 
   // Trigger export
-  const exportBtn = screen.getByRole("button", { name: /Xuất sao lưu & Sao chép/i });
+  const exportBtn = screen.getByRole("button", { name: /Export Backup & Copy/i });
   fireEvent.click(exportBtn);
 
   // Trigger import
   fireEvent.change(importTextarea, { target: { value: "[]" } });
-  const importBtn = screen.getByRole("button", { name: /Khôi phục từ bản dán/i });
+  const importBtn = screen.getByRole("button", { name: /Restore from paste/i });
   fireEvent.click(importBtn);
 });
 
@@ -175,25 +205,25 @@ test("should show correct warnings and auto calculate fees/taxes", async () => {
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
   // 1. Select Gold
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   fireEvent.change(selectElement, { target: { value: "Gold" } });
 
   // 2. Verify fee/tax calculations
-  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  const qtyInput = await screen.findByLabelText("Transaction Quantity (Tael/Share)", { exact: false });
   fireEvent.change(qtyInput, { target: { value: "2" } });
 
-  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  const priceInput = await screen.findByLabelText("Market Price at Transaction", { exact: false });
   fireEvent.change(priceInput, { target: { value: "83000000" } });
 
-  const feeInput = await screen.findByLabelText("Phí giao dịch (VND) - mặc định 0.15%", { exact: false });
+  const feeInput = await screen.findByLabelText("Transaction Fee (VND) - default 0.15%", { exact: false });
   // fee = 2 * 83000000 * 0.0015 = 249000
   expect(feeInput.value).toBe("249000");
 
   // Select Sell
-  const actionSelect = await screen.findByLabelText("Hành động", { exact: false });
+  const actionSelect = await screen.findByLabelText("Action", { exact: false });
   fireEvent.change(actionSelect, { target: { value: "Sell" } });
 
-  const taxInput = await screen.findByLabelText("Thuế bán (VND) - mặc định 0.1%", { exact: false });
+  const taxInput = await screen.findByLabelText("Sell Tax (VND) - default 0.1%", { exact: false });
   // tax = 2 * 83000000 * 0.001 = 166000
   expect(taxInput.value).toBe("166000");
 });
@@ -205,19 +235,19 @@ test("should show error when quantity is <= 0 or invalid", async () => {
   render(<App />);
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   fireEvent.change(selectElement, { target: { value: "VN30" } });
 
-  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  const qtyInput = await screen.findByLabelText("Transaction Quantity (Tael/Share)", { exact: false });
   fireEvent.change(qtyInput, { target: { value: "-5" } });
 
-  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  const priceInput = await screen.findByLabelText("Market Price at Transaction", { exact: false });
   fireEvent.change(priceInput, { target: { value: "21000" } });
 
-  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  const submitButton = screen.getByRole("button", { name: /Save Transaction & Update/i });
   fireEvent.click(submitButton);
 
-  const errorMsg = await screen.findByText("Số lượng giao dịch phải lớn hơn 0");
+  const errorMsg = await screen.findByText("Transaction quantity must be greater than 0");
   expect(errorMsg).toBeInTheDocument();
 });
 
@@ -228,19 +258,19 @@ test("should show error when price is <= 0 or invalid for non-savings assets", a
   render(<App />);
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   fireEvent.change(selectElement, { target: { value: "VN30" } });
 
-  const qtyInput = await screen.findByLabelText("Số lượng giao dịch (lượng/CCQ)", { exact: false });
+  const qtyInput = await screen.findByLabelText("Transaction Quantity (Tael/Share)", { exact: false });
   fireEvent.change(qtyInput, { target: { value: "10" } });
 
-  const priceInput = await screen.findByLabelText("Giá thị trường lúc giao dịch", { exact: false });
+  const priceInput = await screen.findByLabelText("Market Price at Transaction", { exact: false });
   fireEvent.change(priceInput, { target: { value: "-2000" } });
 
-  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  const submitButton = screen.getByRole("button", { name: /Save Transaction & Update/i });
   fireEvent.click(submitButton);
 
-  const errorMsg = await screen.findByText("Giá giao dịch phải lớn hơn 0");
+  const errorMsg = await screen.findByText("Transaction price must be greater than 0");
   expect(errorMsg).toBeInTheDocument();
 });
 
@@ -251,16 +281,16 @@ test("should default price to 1.0 for Savings asset", async () => {
   render(<App />);
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
-  const selectElement = await screen.findByLabelText("Loại tài sản", { exact: false });
+  const selectElement = await screen.findByLabelText("Asset Class", { exact: false });
   fireEvent.change(selectElement, { target: { value: "Savings" } });
 
-  const qtyInput = await screen.findByLabelText("Số tiền nạp/rút (VND)", { exact: false });
+  const qtyInput = await screen.findByLabelText("Deposit/Withdraw Amount (VND)", { exact: false });
   fireEvent.change(qtyInput, { target: { value: "5000000" } });
 
-  const submitButton = screen.getByRole("button", { name: /Lưu giao dịch & Cập nhật/i });
+  const submitButton = screen.getByRole("button", { name: /Save Transaction & Update/i });
   fireEvent.click(submitButton);
 
-  const successMsg = await screen.findByText(/Đã ghi nhận giao dịch Tiết kiệm thành công!/i);
+  const successMsg = await screen.findByText(/Recorded transaction Savings successfully!/i);
   expect(successMsg).toBeInTheDocument();
 });
 
@@ -271,16 +301,16 @@ test("should show error on invalid JSON backup restore", async () => {
   render(<App />);
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
-  const backupBtn = screen.getByRole("button", { name: /Sao lưu \/ Khôi phục/i });
+  const backupBtn = screen.getByRole("button", { name: /Backup \/ Restore/i });
   fireEvent.click(backupBtn);
 
-  const importTextarea = await screen.findByLabelText("Dán dữ liệu sao lưu để khôi phục", { exact: false });
+  const importTextarea = await screen.findByLabelText("Paste backup data to restore", { exact: false });
   fireEvent.change(importTextarea, { target: { value: "invalid-json-content" } });
 
-  const importBtn = screen.getByRole("button", { name: /Khôi phục từ bản dán/i });
+  const importBtn = screen.getByRole("button", { name: /Restore from paste/i });
   fireEvent.click(importBtn);
 
-  const errorMsg = await screen.findByText(/Lỗi phân tích cú pháp JSON hoặc định dạng bản sao lưu không hợp lệ/i);
+  const errorMsg = await screen.findByText(/JSON parse error or invalid backup format/i);
   expect(errorMsg).toBeInTheDocument();
 });
 
@@ -294,14 +324,13 @@ test("should allow deleting a transaction", async () => {
   render(<App />);
   const fireEvent = (await import("@testing-library/react")).fireEvent;
 
-  const deleteButtons = await screen.findAllByRole("button", { name: /Xóa/i });
+  const deleteButtons = await screen.findAllByRole("button", { name: /Delete/i });
   expect(deleteButtons.length).toBeGreaterThan(0);
 
   fireEvent.click(deleteButtons[0]);
 
-  const successMsg = await screen.findByText(/Đã xóa giao dịch thành công!/i);
+  const successMsg = await screen.findByText(/Deleted transaction successfully!/i);
   expect(successMsg).toBeInTheDocument();
 
   window.confirm = originalConfirm;
 });
-

@@ -100,11 +100,10 @@ function getBrowserData() {
   }
   if (!macros) {
     macros = JSON.stringify([
-      { key: "NHNN_RATE", value: 0.045, description: "Lãi suất điều hành NHNN", updated_at: "2026-06-26" },
-      { key: "USD_VND", value: 25450.0, description: "Tỷ giá USD/VND", updated_at: "2026-06-26" },
-      { key: "VNINDEX", value: 1280.5, description: "Chỉ số VN-Index", updated_at: "2026-06-26" },
-      { key: "CPI", value: 104.2, description: "Chỉ số giá tiêu dùng CPI", updated_at: "2026-06-26" },
-      { key: "INFLATION", value: 0.038, description: "Tỷ lệ lạm phát", updated_at: "2026-06-26" }
+      { key: "Savings Interest Rate 12M", value: 0.055, description: "Average 12-month deposit rate of Big4 banks", updated_at: "2026-06-25" },
+      { key: "USD/VND Exchange Rate", value: 25450.0, description: "State Bank of Vietnam USD/VND central rate", updated_at: "2026-06-25" },
+      { key: "VN-Index", value: 1280.5, description: "Vietnam HOSE stock index", updated_at: "2026-06-25" },
+      { key: "CPI Inflation", value: 0.042, description: "Annual CPI inflation rate", updated_at: "2026-06-25" }
     ]);
     localStorage.setItem("eb_macro_indicators", macros);
   }
@@ -158,7 +157,10 @@ function recalculateLocalPortfolio(transactions, existingPortfolio) {
       const isStatic = tx.asset.toLowerCase().includes("bất động sản") || 
                      tx.asset.toLowerCase().includes("nhà đất") || 
                      tx.asset.toLowerCase().includes("đất") || 
-                     tx.asset.toLowerCase().includes("static");
+                     tx.asset.toLowerCase().includes("static") ||
+                     tx.asset.toLowerCase().includes("property") ||
+                     tx.asset.toLowerCase().includes("real estate") ||
+                     tx.asset.toLowerCase().includes("land");
       states[tx.asset] = {
         asset: tx.asset,
         quantity: 0.0,
@@ -366,11 +368,20 @@ async function browserMockInvoke(cmd, args) {
   }
 
   if (cmd === "generate_wealth_advice") {
-    return "### Đề xuất Cố vấn Tài chính AI từ Gemini (Bản Thử Nghiệm)\n\n" +
-      "Dựa trên cơ cấu tài sản hiện tại và các chỉ số kinh tế vĩ mô tại Việt Nam:\n\n" +
-      "1. **Đánh giá danh mục:** Danh mục của bạn có tính đa dạng hóa tốt nhờ sự phân bổ giữa Tiết kiệm (an toàn) và cổ phiếu/vàng. Tuy nhiên, tỷ trọng tiền mặt hiện đang cao hơn mức cần thiết nếu xét theo khẩu vị rủi ro trung bình.\n" +
-      "2. **Phân tích vĩ mô:** Trong bối cảnh lạm phát duy trì ổn định ở mức 3.8% và tỷ giá USD/VND ở mức 25,450, việc nắm giữ một phần vàng SJC và quỹ ETF VN30 là chiến lược phòng thủ và tăng trưởng hiệu quả.\n" +
-      "3. **Tái phân bổ:** Khuyến nghị thực hiện theo gợi ý từ solver để chuyển bớt một phần tiền gửi tiết kiệm sang ETF VN30 và ETF Diamond khi chỉ số VN-Index điều chỉnh về vùng hỗ trợ. Việc này giúp cải thiện lợi nhuận kỳ vọng của danh mục dài hạn lên mức trên 12%/năm.";
+    const { lang } = args || {};
+    if (lang === "vi") {
+      return "### Đề xuất Cố vấn Tài chính AI từ Gemini (Bản Thử Nghiệm)\n\n" +
+        "Dựa trên cơ cấu tài sản hiện tại và các chỉ số kinh tế vĩ mô tại Việt Nam:\n\n" +
+        "1. **Đánh giá danh mục:** Danh mục của bạn có tính đa dạng hóa tốt nhờ sự phân bổ giữa Tiết kiệm (an toàn) và cổ phiếu/vàng. Tuy nhiên, tỷ trọng tiền mặt hiện đang cao hơn mức cần thiết nếu xét theo khẩu vị rủi ro trung bình.\n" +
+        "2. **Phân tích vĩ mô:** Trong bối cảnh lạm phát duy trì ổn định ở mức 3.8% và tỷ giá USD/VND ở mức 25,450, việc nắm giữ một phần vàng SJC và quỹ ETF VN30 là chiến lược phòng thủ và tăng trưởng hiệu quả.\n" +
+        "3. **Tái phân bổ:** Khuyến nghị thực hiện theo gợi ý từ solver để chuyển bớt một phần tiền gửi tiết kiệm sang ETF VN30 và ETF Diamond khi chỉ số VN-Index điều chỉnh về vùng hỗ trợ. Việc này giúp cải thiện lợi nhuận kỳ vọng của danh mục dài hạn lên mức trên 12%/năm.";
+    } else {
+      return "### AI Wealth Advisor Proposal from Gemini (Mock Demo)\n\n" +
+        "Based on your current asset structure and macroeconomic indicators in Vietnam:\n\n" +
+        "1. **Portfolio Evaluation:** Your portfolio is well-diversified due to the allocation between Savings (safe) and stocks/gold. However, the cash/savings ratio is currently higher than necessary considering a moderate risk profile.\n" +
+        "2. **Macro Analysis:** With inflation stable at 3.8% and the USD/VND exchange rate at 25,450, holding SJC Gold and VN30 ETF remains an effective defensive and growth strategy.\n" +
+        "3. **Rebalancing:** We recommend shifting a portion of your Savings to VN30 and Diamond ETFs when the VN-Index consolidates near key support levels. This will improve the long-term expected return of your portfolio to over 12% annually.";
+    }
   }
 
   if (cmd === "run_rebalancer") {
@@ -435,7 +446,7 @@ async function browserMockInvoke(cmd, args) {
       if (parsed.data.settings) localStorage.setItem("eb_settings", JSON.stringify(parsed.data.settings));
       if (parsed.data.macros) localStorage.setItem("eb_macro_indicators", JSON.stringify(parsed.data.macros));
     } catch (e) {
-      throw new Error("Lỗi phân tích cú pháp JSON hoặc định dạng bản sao lưu không hợp lệ: " + e.message);
+      throw new Error("JSON parse error or invalid backup format: " + e.message);
     }
     return;
   }

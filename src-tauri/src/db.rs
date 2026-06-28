@@ -166,6 +166,23 @@ pub fn init_db(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
+    // Seed default macro indicators if empty
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM macro_indicators;", [], |row| row.get(0))?;
+    if count == 0 {
+        let default_macros = [
+            ("Savings Interest Rate 12M", 0.055, "Average 12-month deposit rate of Big4 banks", "2026-06-25"),
+            ("USD/VND Exchange Rate", 25450.0, "State Bank of Vietnam USD/VND central rate", "2026-06-25"),
+            ("VN-Index", 1280.5, "Vietnam HOSE stock index", "2026-06-25"),
+            ("CPI Inflation", 0.042, "Annual CPI inflation rate", "2026-06-25"),
+        ];
+        for (key, val, desc, date) in default_macros {
+            conn.execute(
+                "INSERT INTO macro_indicators (key, value, description, updated_at) VALUES (?1, ?2, ?3, ?4);",
+                params![key, val, desc, date],
+            )?;
+        }
+    }
+
     Ok(())
 }
 
@@ -351,6 +368,9 @@ fn recalculate_portfolio_state(tx: &rusqlite::Transaction) -> Result<(), AppErro
                 || lower_name.contains("nhà đất")
                 || lower_name.contains("đất")
                 || lower_name.contains("static")
+                || lower_name.contains("real estate")
+                || lower_name.contains("property")
+                || lower_name.contains("land")
             {
                 "Static".to_string()
             } else {
